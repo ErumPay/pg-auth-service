@@ -9,5 +9,4 @@ public class PgAuthServiceApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(PgAuthServiceApplication.class, args);
 	}
-
 }

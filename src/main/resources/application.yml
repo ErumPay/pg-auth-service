@@ -15,3 +15,18 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: change-this-secret-key-change-this-secret-key-change-this-secret-key
+  access-token-expiration: 1800000
+  refresh-token-expiration: 1209600000
+
+kakao:
+  client-id: your-kakao-client-id
+  client-secret: your-kakao-client-secret
+  redirect-uri: http://localhost:3000/oauth/kakao/callback
