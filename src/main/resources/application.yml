@@ -28,6 +28,6 @@ jwt:
   signup-token-expiration: 1800000      # 회원가입 진행용 임시 토큰 만료 시간: 30분
 
 kakao:
-  client-id: your-kakao-client-id
+  client-id: f849747a4aceeba6d4ecdc77b40d7740
   client-secret: your-kakao-client-secret
-  redirect-uri: http://localhost:3000/oauth/kakao/callback
+  redirect-uri: http://localhost:8091/api/v1/auth/login/oauth2/code/kakao

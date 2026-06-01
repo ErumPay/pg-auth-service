@@ -29,7 +29,11 @@ public class KakaoClient {
 		MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
 		body.add("grant_type", "authorization_code");
 		body.add("client_id", kakaoProperties.clientId());
-		body.add("client_secret", kakaoProperties.clientSecret());
+		// 카카오 Client Secret을 사용하는 경우에만 요청 body에 포함합니다.
+		// Developers에서 Client Secret 사용 안 함으로 설정했다면 빈 값을 보내지 않는 편이 안전합니다.
+		if (kakaoProperties.clientSecret() != null && !kakaoProperties.clientSecret().isBlank()) {
+			body.add("client_secret", kakaoProperties.clientSecret());
+		}
 		body.add("redirect_uri", kakaoProperties.redirectUri());
 		body.add("code", authorizationCode);
 
