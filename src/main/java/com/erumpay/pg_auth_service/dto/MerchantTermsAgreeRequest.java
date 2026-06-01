@@ -1,9 +1,18 @@
 package com.erumpay.pg_auth_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record MerchantTermsAgreeRequest(
-	Boolean serviceTermsAgreed,   // 서비스 이용약관 동의 여부, 필수 true
-	Boolean privacyPolicyAgreed,  // 개인정보 처리방침 동의 여부, 필수 true
-	Boolean marketingAgreed,      // 마케팅 수신 동의 여부, 선택
-	String termsVersion           // 동의한 약관 버전, 예: v1.0
+	@JsonProperty("service_terms_agreed")
+	Boolean serviceTermsAgreed,
+
+	@JsonProperty("privacy_policy_agreed")
+	Boolean privacyPolicyAgreed,
+
+	@JsonProperty("marketing_agreed")
+	Boolean marketingAgreed,
+
+	@JsonProperty("terms_version")
+	String termsVersion
 ) {
 }

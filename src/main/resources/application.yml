@@ -1,14 +1,14 @@
 server:
-    port: 8091
+  port: 8091
 
 spring:
   application:
     name: pg-auth-service
 
   datasource:
-    url: jdbc:mysql://localhost:3308/pg_auth_db
-    username: root
-    password: 1234
+    url: ${DB_URL:jdbc:mysql://localhost:3308/pg_auth_db}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -18,16 +18,19 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: change-this-secret-key-change-this-secret-key-change-this-secret-key
-  access-token-expiration: 1800000      # Access Token 만료 시간: 30분
-  refresh-token-expiration: 1209600000  # Refresh Token 만료 시간: 14일
-  signup-token-expiration: 1800000      # 회원가입 진행용 임시 토큰 만료 시간: 30분
+  secret: ${JWT_SECRET:change-this-secret-key-change-this-secret-key-change-this-secret-key}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:1800000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:1209600000}
+  signup-token-expiration: ${JWT_SIGNUP_TOKEN_EXPIRATION:1800000}
 
 kakao:
-  client-id: f849747a4aceeba6d4ecdc77b40d7740
-  client-secret: your-kakao-client-secret
-  redirect-uri: http://localhost:8091/api/v1/auth/login/oauth2/code/kakao
+  client-id: ${KAKAO_CLIENT_ID:f849747a4aceeba6d4ecdc77b40d7740}
+  client-secret: ${KAKAO_CLIENT_SECRET:}
+  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8091/api/v1/auth/login/oauth2/code/kakao}
+
+merchant-service:
+  url: ${MERCHANT_SERVICE_URL:http://localhost:8094}

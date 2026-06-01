@@ -1,12 +1,16 @@
 package com.erumpay.pg_auth_service.service;
 
 import com.erumpay.pg_auth_service.client.KakaoClient;
+import com.erumpay.pg_auth_service.client.MerchantServiceClient;
+import com.erumpay.pg_auth_service.config.RedisConfig;
 import com.erumpay.pg_auth_service.dto.AuthStatusResponse;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginRequest;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginResponse;
 import com.erumpay.pg_auth_service.dto.KakaoTokenResponse;
 import com.erumpay.pg_auth_service.dto.KakaoUserResponse;
 import com.erumpay.pg_auth_service.dto.LogoutRequest;
+import com.erumpay.pg_auth_service.dto.MerchantCreateRequest;
+import com.erumpay.pg_auth_service.dto.MerchantCreateResponse;
 import com.erumpay.pg_auth_service.dto.MerchantSignupRequest;
 import com.erumpay.pg_auth_service.dto.MerchantSignupResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeRequest;
@@ -26,7 +30,6 @@ import com.erumpay.pg_auth_service.security.JwtProperties;
 import com.erumpay.pg_auth_service.security.JwtRole;
 import com.erumpay.pg_auth_service.security.JwtService;
 import com.erumpay.pg_auth_service.security.JwtTokenType;
-import com.erumpay.pg_auth_service.config.RedisConfig;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -44,7 +47,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
+	private static final String DEFAULT_REVIEW_STATUS = "WAITING";
+
 	private final KakaoClient kakaoClient;
+	private final MerchantServiceClient merchantServiceClient;
 	private final JwtService jwtService;
 	private final JwtProperties jwtProperties;
 	private final StringRedisTemplate redisTemplate;
@@ -58,6 +64,10 @@ public class AuthService {
 
 	@Transactional
 	public KakaoMerchantLoginResponse loginMerchantWithKakao(KakaoMerchantLoginRequest request) {
+		if (request.code() == null || request.code().isBlank()) {
+			throw new AuthException("카카오 인가 코드가 필요합니다.");
+		}
+
 		KakaoTokenResponse kakaoToken = kakaoClient.requestToken(request.code());
 		if (kakaoToken == null || kakaoToken.accessToken() == null) {
 			throw new AuthException("카카오 토큰 발급에 실패했습니다.");
@@ -86,11 +96,14 @@ public class AuthService {
 		if (!Boolean.TRUE.equals(request.privacyPolicyAgreed())) {
 			throw new AuthException("개인정보 처리방침 동의는 필수입니다.");
 		}
+		requireText(request.termsVersion(), "약관 버전은 필수입니다.");
 
 		Long accountId = extractSignupAccountId(authorization);
+		MerchantAuth merchant = findSignupMerchant(accountId);
 
-		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
-			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
+		if (merchantTermsAgreementRepository.existsByAccountId(merchant.getAccountId())) {
+			throw new AuthException("이미 약관 동의가 완료된 가맹점 계정입니다.");
+		}
 
 		MerchantTermsAgreement agreement = new MerchantTermsAgreement();
 		agreement.setAccountId(merchant.getAccountId());
@@ -106,19 +119,34 @@ public class AuthService {
 
 	@Transactional
 	public MerchantSignupResponse signupMerchant(String authorization, MerchantSignupRequest request) {
+		validateSignupRequest(request);
+
 		Long accountId = extractSignupAccountId(authorization);
-
-		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
-			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
-
-		if (merchant.getStatus() != MerchantAccountStatus.DRAFT) {
-			throw new AuthException("회원가입 추가정보를 입력할 수 없는 상태입니다.");
+		MerchantAuth merchant = findSignupMerchant(accountId);
+		if (!merchantTermsAgreementRepository.existsByAccountId(accountId)) {
+			throw new AuthException("약관 동의 후 회원가입을 진행할 수 있습니다.");
 		}
 
-		// TODO: merchant-service에 사업자명, 사업자등록번호, 대표자명 등의 추가 정보를 전달합니다.
+		// merchant-service의 내부 가맹점 생성 API는 멱등키가 필수입니다.
+		// 같은 auth 계정의 가입 요청이 재시도되어도 중복 생성 위험을 줄이기 위해 계정 ID 기반 키를 사용합니다.
+		String idempotencyKey = "merchant-signup-" + accountId;
+		MerchantCreateResponse merchantResponse = merchantServiceClient.createMerchant(
+			idempotencyKey,
+			toMerchantCreateRequest(request)
+		);
+
+		if (merchantResponse == null || merchantResponse.merchantId() == null) {
+			throw new AuthException("merchant-service 가맹점 생성 응답이 올바르지 않습니다.");
+		}
+
+		merchant.setMerchantId(merchantResponse.merchantId());
+		merchant.setName(request.merchantName());
 		merchant.setStatus(MerchantAccountStatus.PENDING);
 
-		return new MerchantSignupResponse(merchant.getAccountId(), merchant.getStatus());
+		String reviewStatus = merchantResponse.reviewStatus() == null
+			? DEFAULT_REVIEW_STATUS
+			: merchantResponse.reviewStatus();
+		return new MerchantSignupResponse(merchant.getMerchantId(), merchant.getStatus(), reviewStatus);
 	}
 
 	@Transactional(readOnly = true)
@@ -133,7 +161,7 @@ public class AuthService {
 		String redisKey = RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + accountId;
 		String savedToken = redisTemplate.opsForValue().get(redisKey);
 		if (!refreshToken.equals(savedToken)) {
-			throw new AuthException("Redis에 저장된 Refresh Token과 일치하지 않습니다.");
+			throw new AuthException("저장된 Refresh Token과 일치하지 않습니다.");
 		}
 
 		String tokenHash = hashToken(refreshToken);
@@ -166,6 +194,16 @@ public class AuthService {
 	}
 
 	private KakaoMerchantLoginResponse loginExistingMerchant(MerchantAuth merchant) {
+		if (merchant.getStatus() == MerchantAccountStatus.SUSPENDED
+			|| merchant.getStatus() == MerchantAccountStatus.WITHDRAWN
+			|| merchant.getStatus() == MerchantAccountStatus.REJECTED) {
+			throw new AuthException("로그인할 수 없는 가맹점 상태입니다.");
+		}
+
+		if (merchant.getStatus() == MerchantAccountStatus.DRAFT) {
+			return issueSignupResponse(false, merchant);
+		}
+
 		merchant.setLastLoginAt(LocalDateTime.now());
 		String accessToken = jwtService.createAccessToken(merchant.getAccountId(), JwtRole.MERCHANT);
 		String refreshToken = jwtService.createRefreshToken(merchant.getAccountId(), JwtRole.MERCHANT);
@@ -174,9 +212,11 @@ public class AuthService {
 		return new KakaoMerchantLoginResponse(
 			false,
 			merchant.getAccountId(),
+			merchant.getMerchantId(),
 			merchant.getStatus(),
 			accessToken,
 			refreshToken,
+			JwtRole.MERCHANT,
 			null
 		);
 	}
@@ -189,19 +229,85 @@ public class AuthService {
 		merchant.setStatus(MerchantAccountStatus.DRAFT);
 
 		MerchantAuth saved = merchantAuthRepository.save(merchant);
+		return issueSignupResponse(true, saved);
+	}
 
-		// 신규 가맹점은 아직 정식 로그인 상태가 아니므로 accessToken/refreshToken을 발급하지 않습니다.
-		// 대신 약관 동의와 추가정보 입력 단계에서 본인을 식별할 수 있도록 SIGNUP 타입의 임시 JWT를 발급합니다.
-		// 이 토큰 안에는 accountId가 들어있어서, 다음 API에서 request body로 accountId를 받을 필요가 없어집니다.
-		String signupToken = jwtService.createSignupToken(saved.getAccountId());
-
+	private KakaoMerchantLoginResponse issueSignupResponse(boolean isNewMerchant, MerchantAuth merchant) {
+		// 신규/가입 미완료 가맹점은 정식 로그인 토큰 대신 SIGNUP 타입 JWT를 받습니다.
+		// 이 토큰으로 약관 동의와 추가정보 입력 API에서 accountId를 안전하게 꺼냅니다.
+		String signupToken = jwtService.createSignupToken(merchant.getAccountId());
 		return new KakaoMerchantLoginResponse(
-			true,
-			saved.getAccountId(),
-			saved.getStatus(),
+			isNewMerchant,
+			merchant.getAccountId(),
+			merchant.getMerchantId(),
+			merchant.getStatus(),
+			null,
 			null,
 			null,
 			signupToken
+		);
+	}
+
+	private Long extractSignupAccountId(String authorization) {
+		String signupToken = extractBearerToken(authorization);
+		if (!jwtService.validateToken(signupToken)) {
+			throw new AuthException("유효하지 않은 회원가입 토큰입니다.");
+		}
+		if (!JwtTokenType.SIGNUP.name().equals(jwtService.extractTokenType(signupToken))) {
+			throw new AuthException("회원가입용 토큰이 아닙니다.");
+		}
+		if (!JwtRole.MERCHANT.name().equals(jwtService.extractRole(signupToken))) {
+			throw new AuthException("가맹점 회원가입 토큰이 아닙니다.");
+		}
+		return jwtService.extractAccountId(signupToken);
+	}
+
+	private String extractBearerToken(String authorization) {
+		if (authorization == null || !authorization.startsWith("Bearer ")) {
+			throw new AuthException("Authorization 헤더에 회원가입 토큰이 필요합니다.");
+		}
+		return authorization.substring(7);
+	}
+
+	private MerchantAuth findSignupMerchant(Long accountId) {
+		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
+			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
+
+		if (merchant.getStatus() != MerchantAccountStatus.DRAFT) {
+			throw new AuthException("회원가입을 진행할 수 없는 가맹점 상태입니다.");
+		}
+		return merchant;
+	}
+
+	private void validateSignupRequest(MerchantSignupRequest request) {
+		requireText(request.businessNumber(), "사업자번호는 필수입니다.");
+		requireText(request.merchantName(), "가맹점명은 필수입니다.");
+		requireText(request.mccCode(), "MCC 코드는 필수입니다.");
+		requireText(request.representativeName(), "대표자명은 필수입니다.");
+		requireText(request.contactEmail(), "담당자 이메일은 필수입니다.");
+		requireText(request.contactPhone(), "담당자 연락처는 필수입니다.");
+		requireText(request.settlementAccount(), "정산 계좌는 필수입니다.");
+		requireText(request.bankName(), "은행명은 필수입니다.");
+		requireText(request.serviceName(), "서비스명은 필수입니다.");
+	}
+
+	private void requireText(String value, String message) {
+		if (value == null || value.isBlank()) {
+			throw new AuthException(message);
+		}
+	}
+
+	private MerchantCreateRequest toMerchantCreateRequest(MerchantSignupRequest request) {
+		return new MerchantCreateRequest(
+			request.businessNumber(),
+			request.merchantName(),
+			request.mccCode(),
+			request.representativeName(),
+			request.contactEmail(),
+			request.contactPhone(),
+			request.settlementAccount(),
+			request.bankName(),
+			request.serviceName()
 		);
 	}
 
@@ -244,41 +350,5 @@ public class AuthService {
 		} catch (NoSuchAlgorithmException ex) {
 			throw new AuthException("토큰 해시 생성에 실패했습니다.");
 		}
-	}
-
-	private Long extractSignupAccountId(String authorization) {
-		// Authorization 헤더는 "Bearer {token}" 형식으로 들어옵니다.
-		// 여기서는 앞의 "Bearer "를 제거하고 실제 JWT 문자열만 꺼냅니다.
-		String signupToken = extractBearerToken(authorization);
-
-		// 토큰 서명, 만료시간 등을 먼저 검증합니다.
-		// validateToken이 false면 변조되었거나 만료된 토큰입니다.
-		if (!jwtService.validateToken(signupToken)) {
-			throw new AuthException("유효하지 않은 회원가입 토큰입니다.");
-		}
-
-		// signup_token은 반드시 tokenType이 SIGNUP이어야 합니다.
-		// Access Token이나 Refresh Token으로 약관 동의/회원가입 API를 호출하지 못하게 막는 역할입니다.
-		if (!JwtTokenType.SIGNUP.name().equals(jwtService.extractTokenType(signupToken))) {
-			throw new AuthException("회원가입용 토큰이 아닙니다.");
-		}
-
-		// 이 서비스의 가맹점 가입 절차이므로 role도 MERCHANT인지 확인합니다.
-		if (!JwtRole.MERCHANT.name().equals(jwtService.extractRole(signupToken))) {
-			throw new AuthException("가맹점 회원가입 토큰이 아닙니다.");
-		}
-
-		// JWT 안에 들어있는 accountId를 꺼냅니다.
-		// 이제 request body로 accountId를 받을 필요가 없습니다.
-		return jwtService.extractAccountId(signupToken);
-	}
-
-	private String extractBearerToken(String authorization) {
-		// Authorization 헤더가 없거나 Bearer 형식이 아니면 인증 실패로 처리합니다.
-		if (authorization == null || !authorization.startsWith("Bearer ")) {
-			throw new AuthException("Authorization 헤더에 회원가입 토큰이 필요합니다.");
-		}
-
-		return authorization.substring(7);
 	}
 }

@@ -2,7 +2,7 @@ package com.erumpay.pg_auth_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public record MerchantSignupRequest(
+public record MerchantCreateRequest(
 	@JsonProperty("business_number")
 	String businessNumber,
 
