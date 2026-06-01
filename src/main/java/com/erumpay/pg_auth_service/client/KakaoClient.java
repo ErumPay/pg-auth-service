@@ -2,6 +2,7 @@ package com.erumpay.pg_auth_service.client;
 
 import com.erumpay.pg_auth_service.dto.KakaoTokenResponse;
 import com.erumpay.pg_auth_service.dto.KakaoUserResponse;
+import com.erumpay.pg_auth_service.exception.AuthException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -9,9 +10,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
-// 카카오 OAuth 서버와 통신하는 전용 클라이언트입니다.
 @Component
 @RequiredArgsConstructor
 public class KakaoClient {
@@ -29,29 +30,37 @@ public class KakaoClient {
 		MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
 		body.add("grant_type", "authorization_code");
 		body.add("client_id", kakaoProperties.clientId());
-		// 카카오 Client Secret을 사용하는 경우에만 요청 body에 포함합니다.
-		// Developers에서 Client Secret 사용 안 함으로 설정했다면 빈 값을 보내지 않는 편이 안전합니다.
+		// 카카오 Developers에서 Client Secret 사용 설정을 켠 경우에만 전송합니다.
+		// 사용하지 않는데 임의 값을 보내면 카카오 토큰 요청이 실패할 수 있습니다.
 		if (kakaoProperties.clientSecret() != null && !kakaoProperties.clientSecret().isBlank()) {
 			body.add("client_secret", kakaoProperties.clientSecret());
 		}
 		body.add("redirect_uri", kakaoProperties.redirectUri());
 		body.add("code", authorizationCode);
 
-		return restTemplate.postForObject(
-			KAKAO_TOKEN_URL,
-			new HttpEntity<>(body, headers),
-			KakaoTokenResponse.class
-		);
+		try {
+			return restTemplate.postForObject(
+				KAKAO_TOKEN_URL,
+				new HttpEntity<>(body, headers),
+				KakaoTokenResponse.class
+			);
+		} catch (RestClientResponseException ex) {
+			throw new AuthException("카카오 토큰 요청 실패(" + ex.getStatusCode() + "): " + ex.getResponseBodyAsString());
+		}
 	}
 
 	public KakaoUserResponse requestUserInfo(String accessToken) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setBearerAuth(accessToken);
 
-		return restTemplate.postForObject(
-			KAKAO_USER_INFO_URL,
-			new HttpEntity<>(headers),
-			KakaoUserResponse.class
-		);
+		try {
+			return restTemplate.postForObject(
+				KAKAO_USER_INFO_URL,
+				new HttpEntity<>(headers),
+				KakaoUserResponse.class
+			);
+		} catch (RestClientResponseException ex) {
+			throw new AuthException("카카오 사용자 정보 요청 실패(" + ex.getStatusCode() + "): " + ex.getResponseBodyAsString());
+		}
 	}
 }

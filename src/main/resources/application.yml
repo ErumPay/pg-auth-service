@@ -29,7 +29,7 @@ jwt:
 
 kakao:
   client-id: ${KAKAO_CLIENT_ID:f849747a4aceeba6d4ecdc77b40d7740}
-  client-secret: ${KAKAO_CLIENT_SECRET:}
+  client-secret:
   redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8091/api/v1/auth/login/oauth2/code/kakao}
 
 merchant-service:
