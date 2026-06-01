@@ -1,17 +1,22 @@
 server:
-    port: 8091
+  port: 8091
 
 spring:
   application:
     name: pg-auth-service
 
   datasource:
-    url: jdbc:mysql://localhost:3308/pg_auth_db
-    username: root
-    password: 1234
+    url: ${DB_URL:jdbc:mysql://localhost:3308/pg_auth_db}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET:change-this-secret-key-change-this-secret-key-change-this-secret-key}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:1800000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:86400000}
