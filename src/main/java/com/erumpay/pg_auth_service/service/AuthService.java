@@ -34,7 +34,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -182,7 +181,11 @@ public class AuthService {
 		merchant.setStatus(MerchantAccountStatus.DRAFT);
 
 		MerchantAuth saved = merchantAuthRepository.save(merchant);
-		String signupToken = UUID.randomUUID().toString();
+
+		// 신규 가맹점은 아직 정식 로그인 상태가 아니므로 accessToken/refreshToken을 발급하지 않습니다.
+		// 대신 약관 동의와 추가정보 입력 단계에서 본인을 식별할 수 있도록 SIGNUP 타입의 임시 JWT를 발급합니다.
+		// 이 토큰 안에는 accountId가 들어있어서, 다음 API에서 request body로 accountId를 받을 필요가 없어집니다.
+		String signupToken = jwtService.createSignupToken(saved.getAccountId());
 
 		return new KakaoMerchantLoginResponse(
 			true,

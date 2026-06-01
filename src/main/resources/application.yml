@@ -23,8 +23,9 @@ spring:
 
 jwt:
   secret: change-this-secret-key-change-this-secret-key-change-this-secret-key
-  access-token-expiration: 1800000
-  refresh-token-expiration: 1209600000
+  access-token-expiration: 1800000      # Access Token 만료 시간: 30분
+  refresh-token-expiration: 1209600000  # Refresh Token 만료 시간: 14일
+  signup-token-expiration: 1800000      # 회원가입 진행용 임시 토큰 만료 시간: 30분
 
 kakao:
   client-id: your-kakao-client-id

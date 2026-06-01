@@ -31,6 +31,7 @@ public class AuthController {
 		return authService.getStatus();
 	}
 
+	// 가맹점 관련 API
 	@PostMapping("/merchant/kakao/login")
 	public KakaoMerchantLoginResponse loginMerchantWithKakao(
 		@RequestBody KakaoMerchantLoginRequest request

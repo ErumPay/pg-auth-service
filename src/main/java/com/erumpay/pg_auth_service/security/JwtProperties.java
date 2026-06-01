@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JwtProperties(
 	String secret,
 	long accessTokenExpiration,
-	long refreshTokenExpiration
+	long refreshTokenExpiration,
+	long signupTokenExpiration // 신규 가맹점 회원가입 절차용 임시 JWT 만료 시간
 ) {
 }
