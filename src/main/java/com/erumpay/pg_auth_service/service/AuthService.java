@@ -75,7 +75,11 @@ public class AuthService {
 	}
 
 	@Transactional
-	public MerchantTermsAgreeResponse agreeMerchantTerms(MerchantTermsAgreeRequest request, String ipAddress) {
+	public MerchantTermsAgreeResponse agreeMerchantTerms(
+		String authorization,
+		MerchantTermsAgreeRequest request,
+		String ipAddress
+	) {
 		if (!Boolean.TRUE.equals(request.serviceTermsAgreed())) {
 			throw new AuthException("서비스 이용약관 동의는 필수입니다.");
 		}
@@ -83,7 +87,9 @@ public class AuthService {
 			throw new AuthException("개인정보 처리방침 동의는 필수입니다.");
 		}
 
-		MerchantAuth merchant = merchantAuthRepository.findById(request.accountId())
+		Long accountId = extractSignupAccountId(authorization);
+
+		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
 			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
 
 		MerchantTermsAgreement agreement = new MerchantTermsAgreement();
@@ -99,8 +105,10 @@ public class AuthService {
 	}
 
 	@Transactional
-	public MerchantSignupResponse signupMerchant(MerchantSignupRequest request) {
-		MerchantAuth merchant = merchantAuthRepository.findById(request.accountId())
+	public MerchantSignupResponse signupMerchant(String authorization, MerchantSignupRequest request) {
+		Long accountId = extractSignupAccountId(authorization);
+
+		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
 			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
 
 		if (merchant.getStatus() != MerchantAccountStatus.DRAFT) {
@@ -236,5 +244,41 @@ public class AuthService {
 		} catch (NoSuchAlgorithmException ex) {
 			throw new AuthException("토큰 해시 생성에 실패했습니다.");
 		}
+	}
+
+	private Long extractSignupAccountId(String authorization) {
+		// Authorization 헤더는 "Bearer {token}" 형식으로 들어옵니다.
+		// 여기서는 앞의 "Bearer "를 제거하고 실제 JWT 문자열만 꺼냅니다.
+		String signupToken = extractBearerToken(authorization);
+
+		// 토큰 서명, 만료시간 등을 먼저 검증합니다.
+		// validateToken이 false면 변조되었거나 만료된 토큰입니다.
+		if (!jwtService.validateToken(signupToken)) {
+			throw new AuthException("유효하지 않은 회원가입 토큰입니다.");
+		}
+
+		// signup_token은 반드시 tokenType이 SIGNUP이어야 합니다.
+		// Access Token이나 Refresh Token으로 약관 동의/회원가입 API를 호출하지 못하게 막는 역할입니다.
+		if (!JwtTokenType.SIGNUP.name().equals(jwtService.extractTokenType(signupToken))) {
+			throw new AuthException("회원가입용 토큰이 아닙니다.");
+		}
+
+		// 이 서비스의 가맹점 가입 절차이므로 role도 MERCHANT인지 확인합니다.
+		if (!JwtRole.MERCHANT.name().equals(jwtService.extractRole(signupToken))) {
+			throw new AuthException("가맹점 회원가입 토큰이 아닙니다.");
+		}
+
+		// JWT 안에 들어있는 accountId를 꺼냅니다.
+		// 이제 request body로 accountId를 받을 필요가 없습니다.
+		return jwtService.extractAccountId(signupToken);
+	}
+
+	private String extractBearerToken(String authorization) {
+		// Authorization 헤더가 없거나 Bearer 형식이 아니면 인증 실패로 처리합니다.
+		if (authorization == null || !authorization.startsWith("Bearer ")) {
+			throw new AuthException("Authorization 헤더에 회원가입 토큰이 필요합니다.");
+		}
+
+		return authorization.substring(7);
 	}
 }

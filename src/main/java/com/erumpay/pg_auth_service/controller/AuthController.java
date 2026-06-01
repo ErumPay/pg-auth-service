@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequiredArgsConstructor
@@ -52,17 +53,27 @@ public class AuthController {
 		return authService.loginMerchantWithKakao(new KakaoMerchantLoginRequest(code));
 	}
 
+	//약관동의 메서드
 	@PostMapping("/merchant/terms/agree")
 	public MerchantTermsAgreeResponse agreeMerchantTerms(
+		@RequestHeader("Authorization") String authorization,
 		@RequestBody MerchantTermsAgreeRequest request,
 		HttpServletRequest httpServletRequest
 	) {
-		return authService.agreeMerchantTerms(request, httpServletRequest.getRemoteAddr());
+		// 신규 가맹점은 아직 정식 Access Token이 없기 때문에 signup_token을 Authorization 헤더로 전달합니다.
+		// Service에서는 이 signup_token을 검증하고, 토큰 안의 accountId를 꺼내 약관 동의 정보를 저장합니다.
+		return authService.agreeMerchantTerms(authorization, request, httpServletRequest.getRemoteAddr());
 	}
 
+	// 회원가입 메서드
 	@PostMapping("/merchant/signup")
-	public MerchantSignupResponse signupMerchant(@RequestBody MerchantSignupRequest request) {
-		return authService.signupMerchant(request);
+	public MerchantSignupResponse signupMerchant(
+		@RequestHeader("Authorization") String authorization,
+		@RequestBody MerchantSignupRequest request
+	) {
+		// 회원가입 추가정보 입력도 signup_token을 통해 "어떤 가맹점 계정의 가입 절차인지" 확인합니다.
+		// body로 accountId를 받으면 다른 계정 ID를 임의로 넣을 수 있으므로 토큰 기반으로 처리합니다.
+		return authService.signupMerchant(authorization, request);
 	}
 
 	@PostMapping("/token/refresh")
