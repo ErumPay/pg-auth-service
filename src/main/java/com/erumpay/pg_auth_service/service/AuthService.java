@@ -15,6 +15,7 @@ import com.erumpay.pg_auth_service.dto.MerchantSignupRequest;
 import com.erumpay.pg_auth_service.dto.MerchantSignupResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeRequest;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeResponse;
+import com.erumpay.pg_auth_service.dto.MerchantTokenRevokeResponse;
 import com.erumpay.pg_auth_service.dto.TokenRefreshRequest;
 import com.erumpay.pg_auth_service.dto.TokenRefreshResponse;
 import com.erumpay.pg_auth_service.entity.MerchantAccountRole;
@@ -37,6 +38,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -48,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
 	private static final String DEFAULT_REVIEW_STATUS = "WAITING";
+	private static final long REFRESH_ROTATION_THRESHOLD_MILLIS = TimeUnit.DAYS.toMillis(3);
 
 	private final KakaoClient kakaoClient;
 	private final MerchantServiceClient merchantServiceClient;
@@ -127,8 +130,7 @@ public class AuthService {
 			throw new AuthException("약관 동의 후 회원가입을 진행할 수 있습니다.");
 		}
 
-		// merchant-service의 내부 가맹점 생성 API는 멱등키가 필수입니다.
-		// 같은 auth 계정의 가입 요청이 재시도되어도 중복 생성 위험을 줄이기 위해 계정 ID 기반 키를 사용합니다.
+		// merchant-service 내부 가맹점 생성 API는 Idempotency-Key가 필수입니다.
 		String idempotencyKey = "merchant-signup-" + accountId;
 		MerchantCreateResponse merchantResponse = merchantServiceClient.createMerchant(
 			idempotencyKey,
@@ -149,12 +151,13 @@ public class AuthService {
 		return new MerchantSignupResponse(merchant.getMerchantId(), merchant.getStatus(), reviewStatus);
 	}
 
-	@Transactional(readOnly = true)
-	public TokenRefreshResponse refreshAccessToken(TokenRefreshRequest request) {
-		String refreshToken = request.refreshToken();
+	@Transactional
+	public TokenRefreshResponse refreshAccessToken(String authorization, TokenRefreshRequest request) {
+		String refreshToken = resolveRefreshToken(authorization, request == null ? null : request.refreshToken());
 		if (!jwtService.validateToken(refreshToken)
-			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))) {
-			throw new AuthException("유효하지 않은 Refresh Token입니다.");
+			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))
+			|| !JwtRole.MERCHANT.name().equals(jwtService.extractRole(refreshToken))) {
+			throw new AuthException("유효하지 않은 가맹점 Refresh Token입니다.");
 		}
 
 		Long accountId = jwtService.extractAccountId(refreshToken);
@@ -164,33 +167,75 @@ public class AuthService {
 			throw new AuthException("저장된 Refresh Token과 일치하지 않습니다.");
 		}
 
-		String tokenHash = hashToken(refreshToken);
-		merchantRefreshTokenRepository.findByTokenHashAndIsRevokedFalse(tokenHash)
+		MerchantRefreshToken savedRefreshToken = merchantRefreshTokenRepository
+			.findByTokenHashAndIsRevokedFalse(hashToken(refreshToken))
 			.orElseThrow(() -> new AuthException("폐기되었거나 존재하지 않는 Refresh Token입니다."));
 
-		return new TokenRefreshResponse(jwtService.createAccessToken(accountId, JwtRole.MERCHANT));
+		String newAccessToken = jwtService.createAccessToken(accountId, JwtRole.MERCHANT);
+		if (shouldRotateRefreshToken(savedRefreshToken)) {
+			savedRefreshToken.setIsRevoked(true);
+			String newRefreshToken = jwtService.createRefreshToken(accountId, JwtRole.MERCHANT);
+			saveRefreshToken(accountId, newRefreshToken);
+			return new TokenRefreshResponse(newAccessToken, newRefreshToken);
+		}
+
+		return new TokenRefreshResponse(newAccessToken, refreshToken);
 	}
 
 	@Transactional
-	public void logoutMerchant(LogoutRequest request) {
-		String refreshToken = request.refreshToken();
-		if (jwtService.validateToken(refreshToken)) {
-			Long accountId = jwtService.extractAccountId(refreshToken);
-			redisTemplate.delete(RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + accountId);
-
-			String tokenHash = hashToken(refreshToken);
-			merchantRefreshTokenRepository.findByTokenHashAndIsRevokedFalse(tokenHash)
-				.ifPresent(token -> token.setIsRevoked(true));
+	public void logoutMerchant(String authorization, LogoutRequest request) {
+		String refreshToken = resolveRefreshToken(authorization, request == null ? null : request.refreshToken());
+		if (!jwtService.validateToken(refreshToken)
+			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))
+			|| !JwtRole.MERCHANT.name().equals(jwtService.extractRole(refreshToken))) {
+			throw new AuthException("유효하지 않은 가맹점 Refresh Token입니다.");
 		}
 
-		if (request.accessToken() != null && !request.accessToken().isBlank()) {
-			redisTemplate.opsForValue().set(
-				RedisConfig.ACCESS_BLACKLIST_KEY_PREFIX + request.accessToken(),
-				"logout",
-				jwtProperties.accessTokenExpiration(),
-				TimeUnit.MILLISECONDS
-			);
+		Long accountId = jwtService.extractAccountId(refreshToken);
+		redisTemplate.delete(RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + accountId);
+		merchantRefreshTokenRepository.findByTokenHashAndIsRevokedFalse(hashToken(refreshToken))
+			.ifPresent(token -> token.setIsRevoked(true));
+
+		if (request != null && request.accessToken() != null && !request.accessToken().isBlank()) {
+			blacklistAccessToken(request.accessToken(), "merchant_logout");
 		}
+	}
+
+	@Transactional
+	public MerchantTokenRevokeResponse revokeMerchantTokens(Long merchantId) {
+		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
+			.orElseThrow(() -> new AuthException("가맹점을 찾을 수 없습니다."));
+		List<MerchantRefreshToken> activeTokens =
+			merchantRefreshTokenRepository.findAllByAccountIdAndIsRevokedFalse(merchant.getAccountId());
+
+		activeTokens.forEach(token -> token.setIsRevoked(true));
+		redisTemplate.delete(RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + merchant.getAccountId());
+		return new MerchantTokenRevokeResponse(merchantId, activeTokens.size());
+	}
+
+	private boolean shouldRotateRefreshToken(MerchantRefreshToken refreshToken) {
+		LocalDateTime threshold = LocalDateTime.now()
+			.plusNanos(TimeUnit.MILLISECONDS.toNanos(REFRESH_ROTATION_THRESHOLD_MILLIS));
+		return !refreshToken.getExpiresAt().isAfter(threshold);
+	}
+
+	private String resolveRefreshToken(String authorization, String bodyRefreshToken) {
+		if (authorization != null && authorization.startsWith("Bearer ")) {
+			return authorization.substring(7);
+		}
+		if (bodyRefreshToken != null && !bodyRefreshToken.isBlank()) {
+			return bodyRefreshToken;
+		}
+		throw new AuthException("Refresh Token이 필요합니다.");
+	}
+
+	private void blacklistAccessToken(String accessToken, String reason) {
+		redisTemplate.opsForValue().set(
+			RedisConfig.ACCESS_BLACKLIST_KEY_PREFIX + accessToken,
+			reason,
+			jwtProperties.accessTokenExpiration(),
+			TimeUnit.MILLISECONDS
+		);
 	}
 
 	private KakaoMerchantLoginResponse loginExistingMerchant(MerchantAuth merchant) {
@@ -234,7 +279,6 @@ public class AuthService {
 
 	private KakaoMerchantLoginResponse issueSignupResponse(boolean isNewMerchant, MerchantAuth merchant) {
 		// 신규/가입 미완료 가맹점은 정식 로그인 토큰 대신 SIGNUP 타입 JWT를 받습니다.
-		// 이 토큰으로 약관 동의와 추가정보 입력 API에서 accountId를 안전하게 꺼냅니다.
 		String signupToken = jwtService.createSignupToken(merchant.getAccountId());
 		return new KakaoMerchantLoginResponse(
 			isNewMerchant,

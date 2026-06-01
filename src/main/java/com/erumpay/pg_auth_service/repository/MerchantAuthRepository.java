@@ -8,5 +8,7 @@ public interface MerchantAuthRepository extends JpaRepository<MerchantAuth, Long
 
 	Optional<MerchantAuth> findByKakaoOauthId(String kakaoOauthId);
 
+	Optional<MerchantAuth> findByMerchantId(Long merchantId);
+
 	boolean existsByKakaoOauthId(String kakaoOauthId);
 }
