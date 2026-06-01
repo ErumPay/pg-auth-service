@@ -1,14 +1,14 @@
 server:
-    port: 8091
+  port: 8091
 
 spring:
   application:
     name: pg-auth-service
 
   datasource:
-    url: jdbc:mysql://localhost:3308/pg_auth_db
-    username: root
-    password: 1234
+    url: ${DB_URL:jdbc:mysql://localhost:3308/pg_auth_db}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
