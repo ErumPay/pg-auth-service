@@ -31,6 +31,15 @@ public class JwtService {
 		return createToken(accountId, role, JwtTokenType.REFRESH, jwtProperties.refreshTokenExpiration());
 	}
 
+	public String createSignupToken(Long accountId) {
+		return createToken(
+			accountId,
+			JwtRole.MERCHANT,
+			JwtTokenType.SIGNUP,
+			jwtProperties.signupTokenExpiration()
+		);
+	}
+
 	public boolean validateToken(String token) {
 		try {
 			parseClaims(token);
