@@ -28,15 +28,35 @@ public class AdminAuditLogService {
 			throw new AuthException(HttpStatus.NOT_FOUND, "존재하지 않는 admin_id입니다.");
 		}
 
-		AdminAuditLog log = new AdminAuditLog();
-		log.setAdminId(request.adminId());
-		log.setAction(request.action());
-		log.setTargetId(request.targetId());
-		log.setChangeDetail(toJson(request.changeDetail()));
-		log.setIpAddress(request.ipAddress());
-
-		AdminAuditLog saved = adminAuditLogRepository.save(log);
+		AdminAuditLog saved = adminAuditLogRepository.save(createLog(
+			request.adminId(),
+			request.action(),
+			request.targetId(),
+			toJson(request.changeDetail()),
+			request.ipAddress()
+		));
 		return new AdminAuditLogResponse(saved.getLogId());
+	}
+
+	@Transactional
+	public AdminAuditLog record(Long adminId, String action, String targetId, String changeDetail, String ipAddress) {
+		return adminAuditLogRepository.save(createLog(adminId, action, targetId, changeDetail, ipAddress));
+	}
+
+	private AdminAuditLog createLog(
+		Long adminId,
+		String action,
+		String targetId,
+		String changeDetail,
+		String ipAddress
+	) {
+		AdminAuditLog log = new AdminAuditLog();
+		log.setAdminId(adminId);
+		log.setAction(action);
+		log.setTargetId(targetId);
+		log.setChangeDetail(changeDetail);
+		log.setIpAddress(ipAddress == null || ipAddress.isBlank() ? "UNKNOWN" : ipAddress);
+		return log;
 	}
 
 	private void validate(AdminAuditLogRequest request) {

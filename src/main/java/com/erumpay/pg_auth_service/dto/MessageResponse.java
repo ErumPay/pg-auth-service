@@ -1,0 +1,6 @@
+package com.erumpay.pg_auth_service.dto;
+
+public record MessageResponse(
+	String message
+) {
+}
