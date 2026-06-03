@@ -6,6 +6,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -46,6 +48,10 @@ public class InternalApiAuthenticationFilter extends OncePerRequestFilter {
 		String configuredApiKey = internalApiProperties.apiKey();
 		return configuredApiKey != null
 			&& !configuredApiKey.isBlank()
-			&& configuredApiKey.equals(apiKey);
+			&& apiKey != null
+			&& MessageDigest.isEqual(
+				configuredApiKey.getBytes(StandardCharsets.UTF_8),
+				apiKey.getBytes(StandardCharsets.UTF_8)
+			);
 	}
 }
