@@ -12,7 +12,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// PG 관리자 Refresh Token 저장용 엔티티입니다. 이번 범위에서는 Repository까지만 사용합니다.
 @Getter
 @Setter
 @Entity

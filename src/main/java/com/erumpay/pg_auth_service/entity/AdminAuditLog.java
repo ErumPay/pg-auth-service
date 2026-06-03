@@ -13,7 +13,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// PG 관리자 작업 이력을 저장하는 감사 로그 엔티티입니다.
 @Getter
 @Setter
 @Entity

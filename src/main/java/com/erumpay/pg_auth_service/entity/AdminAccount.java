@@ -14,7 +14,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// PG 관리자 계정입니다. 이번 범위에서는 Service/Controller 없이 저장 구조만 둡니다.
 @Getter
 @Setter
 @Entity
@@ -46,14 +45,14 @@ public class AdminAccount {
 	@Column(name = "locked_until")
 	private LocalDateTime lockedUntil;
 
+	@Column(name = "failed_login_count", nullable = false)
+	private Integer failedLoginCount = 0;
+
 	@Column(name = "created_at", nullable = false)
 	private LocalDateTime createdAt;
 
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt;
-
-	@Column(name = "failed_login_count", nullable = false)
-	private Integer failedLoginCount = 0;
 
 	@PrePersist
 	void prePersist() {

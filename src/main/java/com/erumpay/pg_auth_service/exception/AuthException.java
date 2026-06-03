@@ -1,9 +1,21 @@
 package com.erumpay.pg_auth_service.exception;
 
-// 인증 도메인에서 잘못된 요청이나 토큰 오류가 발생했을 때 사용하는 예외입니다.
+import org.springframework.http.HttpStatus;
+
 public class AuthException extends RuntimeException {
 
+	private final HttpStatus status;
+
 	public AuthException(String message) {
+		this(HttpStatus.BAD_REQUEST, message);
+	}
+
+	public AuthException(HttpStatus status, String message) {
 		super(message);
+		this.status = status;
+	}
+
+	public HttpStatus getStatus() {
+		return status;
 	}
 }
