@@ -6,6 +6,8 @@ import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginResponse;
 import com.erumpay.pg_auth_service.dto.LogoutRequest;
 import com.erumpay.pg_auth_service.dto.MerchantSignupRequest;
 import com.erumpay.pg_auth_service.dto.MerchantSignupResponse;
+import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateRequest;
+import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeRequest;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTokenRevokeResponse;
@@ -84,5 +86,13 @@ public class AuthController {
 	@PatchMapping("/internal/v1/auth/merchants/{merchantId}/tokens/revoke")
 	public MerchantTokenRevokeResponse revokeMerchantTokens(@PathVariable Long merchantId) {
 		return authService.revokeMerchantTokens(merchantId);
+	}
+
+	@PatchMapping("/internal/v1/auth/merchants/{merchantId}/status")
+	public MerchantStatusUpdateResponse updateMerchantStatus(
+		@PathVariable Long merchantId,
+		@RequestBody MerchantStatusUpdateRequest request
+	) {
+		return authService.updateMerchantStatus(merchantId, request);
 	}
 }

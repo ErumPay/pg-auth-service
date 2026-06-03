@@ -13,6 +13,8 @@ import com.erumpay.pg_auth_service.dto.MerchantCreateRequest;
 import com.erumpay.pg_auth_service.dto.MerchantCreateResponse;
 import com.erumpay.pg_auth_service.dto.MerchantSignupRequest;
 import com.erumpay.pg_auth_service.dto.MerchantSignupResponse;
+import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateRequest;
+import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeRequest;
 import com.erumpay.pg_auth_service.dto.MerchantTermsAgreeResponse;
 import com.erumpay.pg_auth_service.dto.MerchantTokenRevokeResponse;
@@ -205,12 +207,34 @@ public class AuthService {
 	public MerchantTokenRevokeResponse revokeMerchantTokens(Long merchantId) {
 		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
 			.orElseThrow(() -> new AuthException("가맹점을 찾을 수 없습니다."));
+		return new MerchantTokenRevokeResponse(merchantId, revokeActiveRefreshTokens(merchant));
+	}
+
+	@Transactional
+	public MerchantStatusUpdateResponse updateMerchantStatus(
+		Long merchantId,
+		MerchantStatusUpdateRequest request
+	) {
+		if (request == null || request.status() == null) {
+			throw new AuthException("가맹점 상태가 필요합니다.");
+		}
+		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
+			.orElseThrow(() -> new AuthException("가맹점을 찾을 수 없습니다."));
+
+		merchant.setStatus(request.status());
+		if (merchant.getStatus() != MerchantAccountStatus.ACTIVE) {
+			revokeActiveRefreshTokens(merchant);
+		}
+		return new MerchantStatusUpdateResponse(merchantId, merchant.getStatus());
+	}
+
+	private int revokeActiveRefreshTokens(MerchantAuth merchant) {
 		List<MerchantRefreshToken> activeTokens =
 			merchantRefreshTokenRepository.findAllByAccountIdAndIsRevokedFalse(merchant.getAccountId());
 
 		activeTokens.forEach(token -> token.setIsRevoked(true));
 		redisTemplate.delete(RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + merchant.getAccountId());
-		return new MerchantTokenRevokeResponse(merchantId, activeTokens.size());
+		return activeTokens.size();
 	}
 
 	private boolean shouldRotateRefreshToken(MerchantRefreshToken refreshToken) {
@@ -247,6 +271,9 @@ public class AuthService {
 
 		if (merchant.getStatus() == MerchantAccountStatus.DRAFT) {
 			return issueSignupResponse(false, merchant);
+		}
+		if (merchant.getStatus() != MerchantAccountStatus.ACTIVE) {
+			throw new AuthException("로그인할 수 없는 가맹점 상태입니다.");
 		}
 
 		merchant.setLastLoginAt(LocalDateTime.now());

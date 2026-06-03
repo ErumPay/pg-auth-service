@@ -1,6 +1,8 @@
 package com.erumpay.pg_auth_service.security;
 
 import com.erumpay.pg_auth_service.config.RedisConfig;
+import com.erumpay.pg_auth_service.entity.MerchantAccountStatus;
+import com.erumpay.pg_auth_service.repository.MerchantAuthRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtService jwtService;
 	private final StringRedisTemplate redisTemplate;
+	private final MerchantAuthRepository merchantAuthRepository;
 
 	@Override
 	protected void doFilterInternal(
@@ -37,6 +40,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			&& !isBlacklisted(accessToken)) {
 			Long accountId = jwtService.extractAccountId(accessToken);
 			String role = jwtService.extractRole(accessToken);
+			if (JwtRole.MERCHANT.name().equals(role) && !isActiveMerchant(accountId)) {
+				filterChain.doFilter(request, response);
+				return;
+			}
 			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
 				accountId,
 				null,
@@ -58,5 +65,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private boolean isBlacklisted(String accessToken) {
 		return Boolean.TRUE.equals(redisTemplate.hasKey(RedisConfig.ACCESS_BLACKLIST_KEY_PREFIX + accessToken));
+	}
+
+	private boolean isActiveMerchant(Long accountId) {
+		return merchantAuthRepository.findById(accountId)
+			.map(merchant -> merchant.getStatus() == MerchantAccountStatus.ACTIVE)
+			.orElse(false);
 	}
 }
