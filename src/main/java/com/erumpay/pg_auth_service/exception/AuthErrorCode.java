@@ -1,0 +1,97 @@
+package com.erumpay.pg_auth_service.exception;
+
+import org.springframework.http.HttpStatus;
+
+public enum AuthErrorCode {
+
+	INVALID_REQUEST(HttpStatus.BAD_REQUEST, "AUTH-REQ-001", "INVALID_REQUEST", "잘못된 요청입니다."),
+	MERCHANT_SIGNUP_INVALID_REQUEST(
+		HttpStatus.BAD_REQUEST,
+		"AUTH-REQ-002",
+		"MERCHANT_SIGNUP_INVALID_REQUEST",
+		"가맹점 회원가입 요청 값이 올바르지 않습니다."
+	),
+	MERCHANT_STATUS_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-REQ-003", "MERCHANT_STATUS_REQUIRED", "가맹점 상태가 필요합니다."),
+
+	SERVICE_TERMS_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-MCH-001", "SERVICE_TERMS_REQUIRED", "서비스 이용약관 동의는 필수입니다."),
+	PRIVACY_POLICY_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-MCH-002", "PRIVACY_POLICY_REQUIRED", "개인정보 처리방침 동의는 필수입니다."),
+	TERMS_VERSION_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-MCH-003", "TERMS_VERSION_REQUIRED", "약관 버전은 필수입니다."),
+	MERCHANT_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH-MCH-201", "MERCHANT_ACCOUNT_NOT_FOUND", "가맹점 계정을 찾을 수 없습니다."),
+	MERCHANT_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH-MCH-202", "MERCHANT_NOT_FOUND", "가맹점을 찾을 수 없습니다."),
+	MERCHANT_LOGIN_NOT_ALLOWED(HttpStatus.CONFLICT, "AUTH-MCH-203", "MERCHANT_LOGIN_NOT_ALLOWED", "현재 가맹점 상태에서는 로그인할 수 없습니다."),
+	MERCHANT_SIGNUP_NOT_ALLOWED(HttpStatus.CONFLICT, "AUTH-MCH-204", "MERCHANT_SIGNUP_NOT_ALLOWED", "현재 가맹점 상태에서는 회원가입을 진행할 수 없습니다."),
+	MERCHANT_TERMS_REQUIRED(HttpStatus.CONFLICT, "AUTH-MCH-205", "MERCHANT_TERMS_REQUIRED", "약관 동의 후 회원가입을 진행할 수 있습니다."),
+	MERCHANT_TERMS_ALREADY_AGREED(HttpStatus.CONFLICT, "AUTH-MCH-301", "MERCHANT_TERMS_ALREADY_AGREED", "이미 약관 동의가 완료된 가맹점 계정입니다."),
+
+	REFRESH_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-TKN-001", "REFRESH_TOKEN_REQUIRED", "Refresh Token이 필요합니다."),
+	SIGNUP_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-TKN-002", "SIGNUP_TOKEN_REQUIRED", "Authorization 헤더에 회원가입 토큰이 필요합니다."),
+	INTERNAL_API_KEY_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-TKN-003", "INTERNAL_API_KEY_REQUIRED", "내부 API 인증 정보가 필요합니다."),
+	SIGNUP_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-TKN-101", "SIGNUP_TOKEN_INVALID", "유효하지 않은 회원가입 토큰입니다."),
+	SIGNUP_TOKEN_TYPE_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-TKN-102", "SIGNUP_TOKEN_TYPE_INVALID", "회원가입용 토큰이 아닙니다."),
+	SIGNUP_TOKEN_ROLE_INVALID(HttpStatus.FORBIDDEN, "AUTH-TKN-103", "SIGNUP_TOKEN_ROLE_INVALID", "가맹점 회원가입 토큰이 아닙니다."),
+	MERCHANT_REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-TKN-104", "MERCHANT_REFRESH_TOKEN_INVALID", "유효하지 않은 가맹점 Refresh Token입니다."),
+	ADMIN_REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-TKN-105", "ADMIN_REFRESH_TOKEN_INVALID", "유효하지 않은 관리자 Refresh Token입니다."),
+	REFRESH_TOKEN_REVOKED(HttpStatus.UNAUTHORIZED, "AUTH-TKN-106", "REFRESH_TOKEN_REVOKED", "폐기되었거나 존재하지 않는 Refresh Token입니다."),
+	REFRESH_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, "AUTH-TKN-107", "REFRESH_TOKEN_MISMATCH", "저장된 Refresh Token과 일치하지 않습니다."),
+	ACCESS_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-TKN-108", "ACCESS_TOKEN_INVALID", "유효하지 않은 Access Token입니다."),
+	ACCESS_TOKEN_REVOKED(HttpStatus.UNAUTHORIZED, "AUTH-TKN-109", "ACCESS_TOKEN_REVOKED", "폐기된 Access Token입니다."),
+	INTERNAL_API_KEY_INVALID(HttpStatus.FORBIDDEN, "AUTH-TKN-110", "INTERNAL_API_KEY_INVALID", "유효하지 않은 내부 API 인증 정보입니다."),
+	TOKEN_HASH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-TKN-901", "TOKEN_HASH_FAILED", "토큰 해시 생성에 실패했습니다."),
+
+	ADMIN_LOGIN_REQUEST_INVALID(HttpStatus.BAD_REQUEST, "AUTH-ADM-001", "ADMIN_LOGIN_REQUEST_INVALID", "아이디, 비밀번호, TOTP 코드는 필수입니다."),
+	ADMIN_CREDENTIALS_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-ADM-101", "ADMIN_CREDENTIALS_INVALID", "아이디 또는 비밀번호가 일치하지 않습니다."),
+	ADMIN_TOTP_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-ADM-102", "ADMIN_TOTP_INVALID", "TOTP 코드가 일치하지 않습니다."),
+	ADMIN_TOTP_VERIFICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH-ADM-103", "ADMIN_TOTP_VERIFICATION_FAILED", "TOTP 코드 검증에 실패했습니다."),
+	ADMIN_IP_NOT_ALLOWED(HttpStatus.FORBIDDEN, "AUTH-ADM-104", "ADMIN_IP_NOT_ALLOWED", "허용되지 않은 IP입니다."),
+	ADMIN_ACCOUNT_LOCKED(HttpStatus.LOCKED, "AUTH-ADM-203", "ADMIN_ACCOUNT_LOCKED", "관리자 계정이 잠금 상태입니다."),
+
+	AUDIT_ADMIN_ID_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-AUD-001", "AUDIT_ADMIN_ID_REQUIRED", "admin_id는 필수입니다."),
+	AUDIT_ACTION_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-AUD-002", "AUDIT_ACTION_REQUIRED", "action은 필수입니다."),
+	AUDIT_IP_ADDRESS_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-AUD-003", "AUDIT_IP_ADDRESS_REQUIRED", "ip_address는 필수입니다."),
+	AUDIT_CHANGE_DETAIL_INVALID(HttpStatus.BAD_REQUEST, "AUTH-AUD-004", "AUDIT_CHANGE_DETAIL_INVALID", "change_detail JSON 변환에 실패했습니다."),
+	AUDIT_ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH-AUD-201", "AUDIT_ADMIN_NOT_FOUND", "감사 로그 대상 관리자를 찾을 수 없습니다."),
+
+	KAKAO_AUTH_CODE_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-KAK-001", "KAKAO_AUTH_CODE_REQUIRED", "카카오 인가 코드가 필요합니다."),
+	KAKAO_TOKEN_REQUEST_REJECTED(HttpStatus.BAD_GATEWAY, "AUTH-KAK-400", "KAKAO_TOKEN_REQUEST_REJECTED", "카카오 토큰 요청에 실패했습니다."),
+	KAKAO_TOKEN_REQUEST_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH-KAK-401", "KAKAO_TOKEN_REQUEST_UNAVAILABLE", "카카오 토큰 요청 중 네트워크 오류가 발생했습니다."),
+	KAKAO_TOKEN_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "AUTH-KAK-402", "KAKAO_TOKEN_RESPONSE_INVALID", "카카오 토큰 발급 응답이 올바르지 않습니다."),
+	KAKAO_USER_REQUEST_REJECTED(HttpStatus.BAD_GATEWAY, "AUTH-KAK-403", "KAKAO_USER_REQUEST_REJECTED", "카카오 사용자 정보 요청에 실패했습니다."),
+	KAKAO_USER_REQUEST_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH-KAK-404", "KAKAO_USER_REQUEST_UNAVAILABLE", "카카오 사용자 정보 요청 중 네트워크 오류가 발생했습니다."),
+	KAKAO_USER_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "AUTH-KAK-405", "KAKAO_USER_RESPONSE_INVALID", "카카오 사용자 정보 응답이 올바르지 않습니다."),
+
+	MERCHANT_CREATE_REQUEST_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "AUTH-EXT-400", "MERCHANT_CREATE_REQUEST_FAILED", "가맹점 생성 서비스를 일시적으로 사용할 수 없습니다."),
+	MERCHANT_CREATE_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "AUTH-EXT-401", "MERCHANT_CREATE_RESPONSE_INVALID", "가맹점 생성 응답이 올바르지 않습니다."),
+
+	AUTH_DATA_ACCESS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-DB-901", "AUTH_DATA_ACCESS_FAILED", "인증 데이터 처리에 실패했습니다."),
+	AUTH_CACHE_ACCESS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-DB-902", "AUTH_CACHE_ACCESS_FAILED", "인증 캐시 처리에 실패했습니다."),
+
+	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-SYS-900", "INTERNAL_SERVER_ERROR", "알 수 없는 내부 오류가 발생했습니다.");
+
+	private final HttpStatus status;
+	private final String code;
+	private final String reason;
+	private final String message;
+
+	AuthErrorCode(HttpStatus status, String code, String reason, String message) {
+		this.status = status;
+		this.code = code;
+		this.reason = reason;
+		this.message = message;
+	}
+
+	public HttpStatus getStatus() {
+		return status;
+	}
+
+	public String getCode() {
+		return code;
+	}
+
+	public String getReason() {
+		return reason;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+}

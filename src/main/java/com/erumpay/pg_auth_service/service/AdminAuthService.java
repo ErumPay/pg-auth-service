@@ -5,6 +5,7 @@ import com.erumpay.pg_auth_service.dto.AdminLoginResponse;
 import com.erumpay.pg_auth_service.dto.AdminLogoutResponse;
 import com.erumpay.pg_auth_service.entity.AdminAccount;
 import com.erumpay.pg_auth_service.entity.AdminRefreshToken;
+import com.erumpay.pg_auth_service.exception.AuthErrorCode;
 import com.erumpay.pg_auth_service.exception.AuthException;
 import com.erumpay.pg_auth_service.repository.AdminAccountRepository;
 import com.erumpay.pg_auth_service.repository.AdminRefreshTokenRepository;
@@ -22,7 +23,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,11 +45,11 @@ public class AdminAuthService {
 	@Transactional
 	public AdminLoginResponse login(AdminLoginRequest request, String ipAddress) {
 		if (isBlank(request.loginId()) || isBlank(request.password()) || isBlank(request.totpCode())) {
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "아이디, 비밀번호, TOTP 코드는 필수입니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_LOGIN_REQUEST_INVALID);
 		}
 
 		AdminAccount admin = adminAccountRepository.findByLoginId(request.loginId())
-			.orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.ADMIN_CREDENTIALS_INVALID));
 
 		validateLock(admin);
 		validateAllowedIp(admin, ipAddress);
@@ -74,12 +74,12 @@ public class AdminAuthService {
 		if (!jwtService.validateToken(refreshToken)
 			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))
 			|| !JwtRole.PG_ADMIN.name().equals(jwtService.extractRole(refreshToken))) {
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "유효하지 않은 관리자 Refresh Token입니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_REFRESH_TOKEN_INVALID);
 		}
 
 		Long adminId = jwtService.extractAccountId(refreshToken);
 		AdminRefreshToken token = adminRefreshTokenRepository.findByTokenHashAndIsRevokedFalse(hashToken(refreshToken))
-			.orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "폐기되었거나 존재하지 않는 Refresh Token입니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_REVOKED));
 		token.setIsRevoked(true);
 		adminAuditLogService.record(adminId, "LOGOUT", String.valueOf(adminId), "{}", ipAddress);
 		return new AdminLogoutResponse("로그아웃 완료");
@@ -87,7 +87,7 @@ public class AdminAuthService {
 
 	private void validateLock(AdminAccount admin) {
 		if (admin.getLockedUntil() != null && admin.getLockedUntil().isAfter(LocalDateTime.now())) {
-			throw new AuthException(HttpStatus.LOCKED, "계정 잠금 상태입니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_ACCOUNT_LOCKED);
 		}
 	}
 
@@ -99,21 +99,21 @@ public class AdminAuthService {
 			.map(String::trim)
 			.anyMatch(ip -> ip.equals(ipAddress));
 		if (!allowed) {
-			throw new AuthException(HttpStatus.FORBIDDEN, "허용되지 않은 IP입니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_IP_NOT_ALLOWED);
 		}
 	}
 
 	private void validatePassword(AdminAccount admin, String password) {
 		if (!passwordEncoder.matches(password, admin.getPasswordHash())) {
 			increaseFailure(admin);
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_CREDENTIALS_INVALID);
 		}
 	}
 
 	private void validateTotp(AdminAccount admin, String totpCode) {
 		if (!totpService.verify(admin.getTotpSecret(), totpCode)) {
 			increaseFailure(admin);
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "TOTP 코드가 일치하지 않습니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_TOTP_INVALID);
 		}
 	}
 
@@ -139,7 +139,7 @@ public class AdminAuthService {
 
 	private String extractBearerToken(String authorization) {
 		if (authorization == null || !authorization.startsWith("Bearer ")) {
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "Authorization 헤더에 Refresh Token이 필요합니다.");
+			throw new AuthException(AuthErrorCode.REFRESH_TOKEN_REQUIRED);
 		}
 		return authorization.substring(7);
 	}
@@ -149,7 +149,7 @@ public class AdminAuthService {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
 			return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
 		} catch (NoSuchAlgorithmException ex) {
-			throw new AuthException(HttpStatus.INTERNAL_SERVER_ERROR, "토큰 해시 생성에 실패했습니다.");
+			throw new AuthException(AuthErrorCode.TOKEN_HASH_FAILED);
 		}
 	}
 

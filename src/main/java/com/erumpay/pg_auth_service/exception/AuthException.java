@@ -1,21 +1,15 @@
 package com.erumpay.pg_auth_service.exception;
 
-import org.springframework.http.HttpStatus;
-
 public class AuthException extends RuntimeException {
 
-	private final HttpStatus status;
+	private final AuthErrorCode errorCode;
 
-	public AuthException(String message) {
-		this(HttpStatus.BAD_REQUEST, message);
+	public AuthException(AuthErrorCode errorCode) {
+		super(errorCode.getMessage());
+		this.errorCode = errorCode;
 	}
 
-	public AuthException(HttpStatus status, String message) {
-		super(message);
-		this.status = status;
-	}
-
-	public HttpStatus getStatus() {
-		return status;
+	public AuthErrorCode getErrorCode() {
+		return errorCode;
 	}
 }

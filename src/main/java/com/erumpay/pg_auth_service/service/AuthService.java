@@ -25,6 +25,7 @@ import com.erumpay.pg_auth_service.entity.MerchantAccountStatus;
 import com.erumpay.pg_auth_service.entity.MerchantAuth;
 import com.erumpay.pg_auth_service.entity.MerchantRefreshToken;
 import com.erumpay.pg_auth_service.entity.MerchantTermsAgreement;
+import com.erumpay.pg_auth_service.exception.AuthErrorCode;
 import com.erumpay.pg_auth_service.exception.AuthException;
 import com.erumpay.pg_auth_service.repository.MerchantAuthRepository;
 import com.erumpay.pg_auth_service.repository.MerchantRefreshTokenRepository;
@@ -69,18 +70,18 @@ public class AuthService {
 
 	@Transactional
 	public KakaoMerchantLoginResponse loginMerchantWithKakao(KakaoMerchantLoginRequest request) {
-		if (request.code() == null || request.code().isBlank()) {
-			throw new AuthException("카카오 인가 코드가 필요합니다.");
+		if (request == null || request.code() == null || request.code().isBlank()) {
+			throw new AuthException(AuthErrorCode.KAKAO_AUTH_CODE_REQUIRED);
 		}
 
 		KakaoTokenResponse kakaoToken = kakaoClient.requestToken(request.code());
 		if (kakaoToken == null || kakaoToken.accessToken() == null) {
-			throw new AuthException("카카오 토큰 발급에 실패했습니다.");
+			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_RESPONSE_INVALID);
 		}
 
 		KakaoUserResponse kakaoUser = kakaoClient.requestUserInfo(kakaoToken.accessToken());
 		if (kakaoUser == null || kakaoUser.id() == null) {
-			throw new AuthException("카카오 사용자 정보를 가져오지 못했습니다.");
+			throw new AuthException(AuthErrorCode.KAKAO_USER_RESPONSE_INVALID);
 		}
 
 		String kakaoOauthId = String.valueOf(kakaoUser.id());
@@ -95,19 +96,19 @@ public class AuthService {
 		MerchantTermsAgreeRequest request,
 		String ipAddress
 	) {
-		if (!Boolean.TRUE.equals(request.serviceTermsAgreed())) {
-			throw new AuthException("서비스 이용약관 동의는 필수입니다.");
+		if (request == null || !Boolean.TRUE.equals(request.serviceTermsAgreed())) {
+			throw new AuthException(AuthErrorCode.SERVICE_TERMS_REQUIRED);
 		}
 		if (!Boolean.TRUE.equals(request.privacyPolicyAgreed())) {
-			throw new AuthException("개인정보 처리방침 동의는 필수입니다.");
+			throw new AuthException(AuthErrorCode.PRIVACY_POLICY_REQUIRED);
 		}
-		requireText(request.termsVersion(), "약관 버전은 필수입니다.");
+		requireText(request.termsVersion(), AuthErrorCode.TERMS_VERSION_REQUIRED);
 
 		Long accountId = extractSignupAccountId(authorization);
 		MerchantAuth merchant = findSignupMerchant(accountId);
 
 		if (merchantTermsAgreementRepository.existsByAccountId(merchant.getAccountId())) {
-			throw new AuthException("이미 약관 동의가 완료된 가맹점 계정입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_TERMS_ALREADY_AGREED);
 		}
 
 		MerchantTermsAgreement agreement = new MerchantTermsAgreement();
@@ -129,7 +130,7 @@ public class AuthService {
 		Long accountId = extractSignupAccountId(authorization);
 		MerchantAuth merchant = findSignupMerchant(accountId);
 		if (!merchantTermsAgreementRepository.existsByAccountId(accountId)) {
-			throw new AuthException("약관 동의 후 회원가입을 진행할 수 있습니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_TERMS_REQUIRED);
 		}
 
 		// merchant-service 내부 가맹점 생성 API는 Idempotency-Key가 필수입니다.
@@ -140,7 +141,7 @@ public class AuthService {
 		);
 
 		if (merchantResponse == null || merchantResponse.merchantId() == null) {
-			throw new AuthException("merchant-service 가맹점 생성 응답이 올바르지 않습니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_CREATE_RESPONSE_INVALID);
 		}
 
 		merchant.setMerchantId(merchantResponse.merchantId());
@@ -159,19 +160,19 @@ public class AuthService {
 		if (!jwtService.validateToken(refreshToken)
 			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))
 			|| !JwtRole.MERCHANT.name().equals(jwtService.extractRole(refreshToken))) {
-			throw new AuthException("유효하지 않은 가맹점 Refresh Token입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_REFRESH_TOKEN_INVALID);
 		}
 
 		Long accountId = jwtService.extractAccountId(refreshToken);
 		String redisKey = RedisConfig.MERCHANT_REFRESH_KEY_PREFIX + accountId;
 		String savedToken = redisTemplate.opsForValue().get(redisKey);
 		if (!refreshToken.equals(savedToken)) {
-			throw new AuthException("저장된 Refresh Token과 일치하지 않습니다.");
+			throw new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH);
 		}
 
 		MerchantRefreshToken savedRefreshToken = merchantRefreshTokenRepository
 			.findByTokenHashAndIsRevokedFalse(hashToken(refreshToken))
-			.orElseThrow(() -> new AuthException("폐기되었거나 존재하지 않는 Refresh Token입니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_REVOKED));
 
 		String newAccessToken = jwtService.createAccessToken(accountId, JwtRole.MERCHANT);
 		if (shouldRotateRefreshToken(savedRefreshToken)) {
@@ -190,7 +191,7 @@ public class AuthService {
 		if (!jwtService.validateToken(refreshToken)
 			|| !JwtTokenType.REFRESH.name().equals(jwtService.extractTokenType(refreshToken))
 			|| !JwtRole.MERCHANT.name().equals(jwtService.extractRole(refreshToken))) {
-			throw new AuthException("유효하지 않은 가맹점 Refresh Token입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_REFRESH_TOKEN_INVALID);
 		}
 
 		Long accountId = jwtService.extractAccountId(refreshToken);
@@ -206,7 +207,7 @@ public class AuthService {
 	@Transactional
 	public MerchantTokenRevokeResponse revokeMerchantTokens(Long merchantId) {
 		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
-			.orElseThrow(() -> new AuthException("가맹점을 찾을 수 없습니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.MERCHANT_NOT_FOUND));
 		return new MerchantTokenRevokeResponse(merchantId, revokeActiveRefreshTokens(merchant));
 	}
 
@@ -216,10 +217,10 @@ public class AuthService {
 		MerchantStatusUpdateRequest request
 	) {
 		if (request == null || request.status() == null) {
-			throw new AuthException("가맹점 상태가 필요합니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_STATUS_REQUIRED);
 		}
 		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
-			.orElseThrow(() -> new AuthException("가맹점을 찾을 수 없습니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.MERCHANT_NOT_FOUND));
 
 		merchant.setStatus(request.status());
 		if (merchant.getStatus() != MerchantAccountStatus.ACTIVE) {
@@ -250,7 +251,7 @@ public class AuthService {
 		if (bodyRefreshToken != null && !bodyRefreshToken.isBlank()) {
 			return bodyRefreshToken;
 		}
-		throw new AuthException("Refresh Token이 필요합니다.");
+		throw new AuthException(AuthErrorCode.REFRESH_TOKEN_REQUIRED);
 	}
 
 	private void blacklistAccessToken(String accessToken, String reason) {
@@ -266,14 +267,14 @@ public class AuthService {
 		if (merchant.getStatus() == MerchantAccountStatus.SUSPENDED
 			|| merchant.getStatus() == MerchantAccountStatus.WITHDRAWN
 			|| merchant.getStatus() == MerchantAccountStatus.REJECTED) {
-			throw new AuthException("로그인할 수 없는 가맹점 상태입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_LOGIN_NOT_ALLOWED);
 		}
 
 		if (merchant.getStatus() == MerchantAccountStatus.DRAFT) {
 			return issueSignupResponse(false, merchant);
 		}
 		if (merchant.getStatus() != MerchantAccountStatus.ACTIVE) {
-			throw new AuthException("로그인할 수 없는 가맹점 상태입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_LOGIN_NOT_ALLOWED);
 		}
 
 		merchant.setLastLoginAt(LocalDateTime.now());
@@ -322,49 +323,52 @@ public class AuthService {
 	private Long extractSignupAccountId(String authorization) {
 		String signupToken = extractBearerToken(authorization);
 		if (!jwtService.validateToken(signupToken)) {
-			throw new AuthException("유효하지 않은 회원가입 토큰입니다.");
+			throw new AuthException(AuthErrorCode.SIGNUP_TOKEN_INVALID);
 		}
 		if (!JwtTokenType.SIGNUP.name().equals(jwtService.extractTokenType(signupToken))) {
-			throw new AuthException("회원가입용 토큰이 아닙니다.");
+			throw new AuthException(AuthErrorCode.SIGNUP_TOKEN_TYPE_INVALID);
 		}
 		if (!JwtRole.MERCHANT.name().equals(jwtService.extractRole(signupToken))) {
-			throw new AuthException("가맹점 회원가입 토큰이 아닙니다.");
+			throw new AuthException(AuthErrorCode.SIGNUP_TOKEN_ROLE_INVALID);
 		}
 		return jwtService.extractAccountId(signupToken);
 	}
 
 	private String extractBearerToken(String authorization) {
 		if (authorization == null || !authorization.startsWith("Bearer ")) {
-			throw new AuthException("Authorization 헤더에 회원가입 토큰이 필요합니다.");
+			throw new AuthException(AuthErrorCode.SIGNUP_TOKEN_REQUIRED);
 		}
 		return authorization.substring(7);
 	}
 
 	private MerchantAuth findSignupMerchant(Long accountId) {
 		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
-			.orElseThrow(() -> new AuthException("가맹점 계정을 찾을 수 없습니다."));
+			.orElseThrow(() -> new AuthException(AuthErrorCode.MERCHANT_ACCOUNT_NOT_FOUND));
 
 		if (merchant.getStatus() != MerchantAccountStatus.DRAFT) {
-			throw new AuthException("회원가입을 진행할 수 없는 가맹점 상태입니다.");
+			throw new AuthException(AuthErrorCode.MERCHANT_SIGNUP_NOT_ALLOWED);
 		}
 		return merchant;
 	}
 
 	private void validateSignupRequest(MerchantSignupRequest request) {
-		requireText(request.businessNumber(), "사업자번호는 필수입니다.");
-		requireText(request.merchantName(), "가맹점명은 필수입니다.");
-		requireText(request.mccCode(), "MCC 코드는 필수입니다.");
-		requireText(request.representativeName(), "대표자명은 필수입니다.");
-		requireText(request.contactEmail(), "담당자 이메일은 필수입니다.");
-		requireText(request.contactPhone(), "담당자 연락처는 필수입니다.");
-		requireText(request.settlementAccount(), "정산 계좌는 필수입니다.");
-		requireText(request.bankName(), "은행명은 필수입니다.");
-		requireText(request.serviceName(), "서비스명은 필수입니다.");
+		if (request == null) {
+			throw new AuthException(AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		}
+		requireText(request.businessNumber(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.merchantName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.mccCode(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.representativeName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.contactEmail(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.contactPhone(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.settlementAccount(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.bankName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.serviceName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 	}
 
-	private void requireText(String value, String message) {
+	private void requireText(String value, AuthErrorCode errorCode) {
 		if (value == null || value.isBlank()) {
-			throw new AuthException(message);
+			throw new AuthException(errorCode);
 		}
 	}
 
@@ -419,7 +423,7 @@ public class AuthService {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
 			return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
 		} catch (NoSuchAlgorithmException ex) {
-			throw new AuthException("토큰 해시 생성에 실패했습니다.");
+			throw new AuthException(AuthErrorCode.TOKEN_HASH_FAILED);
 		}
 	}
 }

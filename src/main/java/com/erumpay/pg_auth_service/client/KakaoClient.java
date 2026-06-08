@@ -2,6 +2,7 @@ package com.erumpay.pg_auth_service.client;
 
 import com.erumpay.pg_auth_service.dto.KakaoTokenResponse;
 import com.erumpay.pg_auth_service.dto.KakaoUserResponse;
+import com.erumpay.pg_auth_service.exception.AuthErrorCode;
 import com.erumpay.pg_auth_service.exception.AuthException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -48,9 +49,9 @@ public class KakaoClient {
 				KakaoTokenResponse.class
 			);
 		} catch (RestClientResponseException ex) {
-			throw new AuthException("카카오 토큰 요청 실패(" + ex.getStatusCode() + "): " + ex.getResponseBodyAsString());
+			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_REJECTED);
 		} catch (RestClientException ex) {
-			throw new AuthException("카카오 토큰 요청 중 네트워크 오류가 발생했습니다.");
+			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_UNAVAILABLE);
 		}
 	}
 
@@ -65,9 +66,9 @@ public class KakaoClient {
 				KakaoUserResponse.class
 			);
 		} catch (RestClientResponseException ex) {
-			throw new AuthException("카카오 사용자 정보 요청 실패(" + ex.getStatusCode() + "): " + ex.getResponseBodyAsString());
+			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_REJECTED);
 		} catch (RestClientException ex) {
-			throw new AuthException("카카오 사용자 정보 요청 중 네트워크 오류가 발생했습니다.");
+			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_UNAVAILABLE);
 		}
 	}
 
