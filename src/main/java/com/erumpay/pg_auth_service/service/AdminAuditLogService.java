@@ -78,7 +78,7 @@ public class AdminAuditLogService {
 		try {
 			return objectMapper.writeValueAsString(value);
 		} catch (JsonProcessingException ex) {
-			throw new AuthException(AuthErrorCode.AUDIT_CHANGE_DETAIL_INVALID);
+			throw new AuthException(AuthErrorCode.AUDIT_CHANGE_DETAIL_INVALID, ex);
 		}
 	}
 

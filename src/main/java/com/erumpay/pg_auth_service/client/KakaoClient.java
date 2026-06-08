@@ -49,9 +49,9 @@ public class KakaoClient {
 				KakaoTokenResponse.class
 			);
 		} catch (RestClientResponseException ex) {
-			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_REJECTED);
+			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_REJECTED, ex);
 		} catch (RestClientException ex) {
-			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_UNAVAILABLE);
+			throw new AuthException(AuthErrorCode.KAKAO_TOKEN_REQUEST_UNAVAILABLE, ex);
 		}
 	}
 
@@ -66,9 +66,9 @@ public class KakaoClient {
 				KakaoUserResponse.class
 			);
 		} catch (RestClientResponseException ex) {
-			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_REJECTED);
+			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_REJECTED, ex);
 		} catch (RestClientException ex) {
-			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_UNAVAILABLE);
+			throw new AuthException(AuthErrorCode.KAKAO_USER_REQUEST_UNAVAILABLE, ex);
 		}
 	}
 

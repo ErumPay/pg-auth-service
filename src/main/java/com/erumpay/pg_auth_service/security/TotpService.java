@@ -47,7 +47,7 @@ public class TotpService {
 			int otp = binary % (int) Math.pow(10, CODE_DIGITS);
 			return String.format("%06d", otp);
 		} catch (Exception ex) {
-			throw new AuthException(AuthErrorCode.ADMIN_TOTP_VERIFICATION_FAILED);
+			throw new AuthException(AuthErrorCode.ADMIN_TOTP_VERIFICATION_FAILED, ex);
 		}
 	}
 

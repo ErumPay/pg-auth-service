@@ -26,11 +26,15 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler({
 		HttpMessageNotReadableException.class,
-		MethodArgumentTypeMismatchException.class,
-		NoResourceFoundException.class
+		MethodArgumentTypeMismatchException.class
 	})
 	public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception ex) {
 		return toResponse(AuthErrorCode.INVALID_REQUEST);
+	}
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex) {
+		return toResponse(AuthErrorCode.RESOURCE_NOT_FOUND);
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)

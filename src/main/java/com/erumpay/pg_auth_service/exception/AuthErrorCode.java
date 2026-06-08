@@ -12,6 +12,7 @@ public enum AuthErrorCode {
 		"가맹점 회원가입 요청 값이 올바르지 않습니다."
 	),
 	MERCHANT_STATUS_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-REQ-003", "MERCHANT_STATUS_REQUIRED", "가맹점 상태가 필요합니다."),
+	RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH-REQ-201", "RESOURCE_NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."),
 
 	SERVICE_TERMS_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-MCH-001", "SERVICE_TERMS_REQUIRED", "서비스 이용약관 동의는 필수입니다."),
 	PRIVACY_POLICY_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH-MCH-002", "PRIVACY_POLICY_REQUIRED", "개인정보 처리방침 동의는 필수입니다."),

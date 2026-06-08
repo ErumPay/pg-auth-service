@@ -423,7 +423,7 @@ public class AuthService {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
 			return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
 		} catch (NoSuchAlgorithmException ex) {
-			throw new AuthException(AuthErrorCode.TOKEN_HASH_FAILED);
+			throw new AuthException(AuthErrorCode.TOKEN_HASH_FAILED, ex);
 		}
 	}
 }

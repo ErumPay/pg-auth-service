@@ -21,6 +21,7 @@
 | `AUTH-REQ-001` | `INVALID_REQUEST` | 400 | 잘못된 요청입니다. | 잘못된 JSON Body, PathVariable 타입 오류, enum 변환 실패 등 공통 요청 파싱 실패 | 요청 형식과 값을 수정한 후 재요청 | SDK 미노출 |
 | `AUTH-REQ-002` | `MERCHANT_SIGNUP_INVALID_REQUEST` | 400 | 가맹점 회원가입 요청 값이 올바르지 않습니다. | 사업자번호, 가맹점명, MCC 코드, 대표자명, 이메일, 연락처, 정산계좌, 은행명, 서비스명 중 필수값 누락 | 누락된 회원가입 항목을 입력한 후 재요청 | SDK 미노출 |
 | `AUTH-REQ-003` | `MERCHANT_STATUS_REQUIRED` | 400 | 가맹점 상태가 필요합니다. | 내부 가맹점 상태 변경 요청의 status가 null | status 값을 포함해 재요청 | SDK 미노출 |
+| `AUTH-REQ-201` | `RESOURCE_NOT_FOUND` | 404 | 요청한 리소스를 찾을 수 없습니다. | 존재하지 않는 API 경로 또는 정적 리소스 요청 | 요청 URL과 HTTP Method를 확인 후 재요청 | SDK 미노출 |
 
 ## 가맹점 인증 및 가입 에러 코드
 
@@ -111,7 +112,7 @@
 ## 비고
 
 - 이 표는 `pg-auth-service`의 Controller, Service, Security Filter, 외부 Client 및 상태 enum을 기준으로 작성했다.
-- 현재 `AuthException`은 HTTP status와 message만 가지고 있어 `code`, `reason` 응답은 아직 구현되지 않았다.
-- `AUTH-TKN-108`부터 `AUTH-TKN-110`까지는 현재 Security Filter가 인증 객체를 만들지 않은 뒤 Spring Security 기본 응답으로 처리한다. 공통 에러 응답을 적용할 때 `AuthenticationEntryPoint`와 `AccessDeniedHandler`에서 해당 코드로 변환해야 한다.
-- `AUTH-EXT-400`, `AUTH-DB-901`, `AUTH-DB-902`는 현재 전용 예외 변환 없이 `AUTH-SYS-900`으로 처리될 수 있다. Feign, JPA, Redis 예외 처리기를 추가할 때 분리 적용한다.
+- 현재 `AuthException`은 `AuthErrorCode`를 보관하고, `GlobalExceptionHandler`는 `status`, `error`, `code`, `reason`, `message`, `details` 응답을 반환한다.
+- 내부 API Key 누락/불일치는 `InternalApiAuthenticationFilter`에서 `AUTH-TKN-003`, `AUTH-TKN-110` JSON 응답으로 반환한다.
+- Feign 오류와 JPA/DataAccess 오류는 각각 `AUTH-EXT-400`, `AUTH-DB-901`로 매핑한다. Redis 전용 오류는 별도 핸들러가 없으므로 공통 예외 처리 또는 추후 전용 예외 처리에서 `AUTH-DB-902`로 확장한다.
 - 모든 코드는 서비스 내부 및 서비스 간 운영 추적용이며 현재 외부 SDK 공개 코드로 직접 노출하지 않는다.
