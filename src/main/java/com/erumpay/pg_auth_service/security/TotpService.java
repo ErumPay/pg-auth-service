@@ -1,12 +1,12 @@
 package com.erumpay.pg_auth_service.security;
 
+import com.erumpay.pg_auth_service.exception.AuthErrorCode;
 import com.erumpay.pg_auth_service.exception.AuthException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Locale;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -47,7 +47,7 @@ public class TotpService {
 			int otp = binary % (int) Math.pow(10, CODE_DIGITS);
 			return String.format("%06d", otp);
 		} catch (Exception ex) {
-			throw new AuthException(HttpStatus.UNAUTHORIZED, "TOTP 코드 검증에 실패했습니다.");
+			throw new AuthException(AuthErrorCode.ADMIN_TOTP_VERIFICATION_FAILED, ex);
 		}
 	}
 
