@@ -3,13 +3,13 @@ package com.erumpay.pg_auth_service.service;
 import com.erumpay.pg_auth_service.dto.AdminAuditLogRequest;
 import com.erumpay.pg_auth_service.dto.AdminAuditLogResponse;
 import com.erumpay.pg_auth_service.entity.AdminAuditLog;
+import com.erumpay.pg_auth_service.exception.AuthErrorCode;
 import com.erumpay.pg_auth_service.exception.AuthException;
 import com.erumpay.pg_auth_service.repository.AdminAccountRepository;
 import com.erumpay.pg_auth_service.repository.AdminAuditLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +25,7 @@ public class AdminAuditLogService {
 	public AdminAuditLogResponse record(AdminAuditLogRequest request) {
 		validate(request);
 		if (!adminAccountRepository.existsById(request.adminId())) {
-			throw new AuthException(HttpStatus.NOT_FOUND, "존재하지 않는 admin_id입니다.");
+			throw new AuthException(AuthErrorCode.AUDIT_ADMIN_NOT_FOUND);
 		}
 
 		AdminAuditLog saved = adminAuditLogRepository.save(createLog(
@@ -61,13 +61,13 @@ public class AdminAuditLogService {
 
 	private void validate(AdminAuditLogRequest request) {
 		if (request.adminId() == null) {
-			throw new AuthException(HttpStatus.BAD_REQUEST, "admin_id는 필수입니다.");
+			throw new AuthException(AuthErrorCode.AUDIT_ADMIN_ID_REQUIRED);
 		}
 		if (isBlank(request.action())) {
-			throw new AuthException(HttpStatus.BAD_REQUEST, "action은 필수입니다.");
+			throw new AuthException(AuthErrorCode.AUDIT_ACTION_REQUIRED);
 		}
 		if (isBlank(request.ipAddress())) {
-			throw new AuthException(HttpStatus.BAD_REQUEST, "ip_address는 필수입니다.");
+			throw new AuthException(AuthErrorCode.AUDIT_IP_ADDRESS_REQUIRED);
 		}
 	}
 
@@ -78,7 +78,7 @@ public class AdminAuditLogService {
 		try {
 			return objectMapper.writeValueAsString(value);
 		} catch (JsonProcessingException ex) {
-			throw new AuthException(HttpStatus.BAD_REQUEST, "change_detail JSON 변환에 실패했습니다.");
+			throw new AuthException(AuthErrorCode.AUDIT_CHANGE_DETAIL_INVALID, ex);
 		}
 	}
 

@@ -30,7 +30,7 @@ jwt:
 kakao:
   client-id: ${KAKAO_CLIENT_ID}
   client-secret: ${KAKAO_CLIENT_SECRET:}
-  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8091/api/v1/auth/login/oauth2/code/kakao}
+  redirect-uri: ${KAKAO_REDIRECT_URI:"http://localhost:5173/"}
 
 merchant-service:
   url: ${MERCHANT_SERVICE_URL:http://localhost:8094}

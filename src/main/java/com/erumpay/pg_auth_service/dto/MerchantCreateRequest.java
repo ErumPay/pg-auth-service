@@ -21,6 +21,9 @@ public record MerchantCreateRequest(
 	@JsonProperty("contact_phone")
 	String contactPhone,
 
+	@JsonProperty("business_address")
+	String businessAddress,
+
 	@JsonProperty("settlement_account")
 	String settlementAccount,
 
