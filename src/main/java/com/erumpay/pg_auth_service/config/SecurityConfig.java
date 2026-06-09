@@ -19,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@EnableConfigurationProperties({JwtProperties.class, KakaoProperties.class, InternalApiProperties.class})
+@EnableConfigurationProperties({ JwtProperties.class, KakaoProperties.class, InternalApiProperties.class })
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -28,18 +28,21 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
-			.csrf(csrf -> csrf.disable())
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.formLogin(form -> form.disable())
-			.httpBasic(basic -> basic.disable())
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/internal/v1/auth/**").hasRole("INTERNAL_SERVICE")
-				.requestMatchers("/api/v1/auth/**").permitAll()
-				.anyRequest().authenticated()
-			)
-			.addFilterBefore(internalApiAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-			.build();
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.formLogin(form -> form.disable())
+				.httpBasic(basic -> basic.disable())
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/internal/v1/auth/**").hasRole("INTERNAL_SERVICE")
+						.requestMatchers("/api/v1/auth/**").permitAll()
+						.requestMatchers(
+								"/actuator/health",
+								"/actuator/health/**")
+						.permitAll()
+						.anyRequest().authenticated())
+				.addFilterBefore(internalApiAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+				.build();
 	}
 
 	@Bean
