@@ -361,6 +361,7 @@ public class AuthService {
 		requireText(request.representativeName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 		requireText(request.contactEmail(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 		requireText(request.contactPhone(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
+		requireText(request.businessAddress(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 		requireText(request.settlementAccount(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 		requireText(request.bankName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
 		requireText(request.serviceName(), AuthErrorCode.MERCHANT_SIGNUP_INVALID_REQUEST);
@@ -380,6 +381,7 @@ public class AuthService {
 			request.representativeName(),
 			request.contactEmail(),
 			request.contactPhone(),
+			request.businessAddress(),
 			request.settlementAccount(),
 			request.bankName(),
 			request.serviceName()
