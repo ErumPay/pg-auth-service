@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.erumpay.pg_auth_service.client.KakaoClient;
 import com.erumpay.pg_auth_service.client.MerchantServiceClient;
+import com.erumpay.pg_auth_service.config.InternalApiProperties;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginRequest;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginResponse;
 import com.erumpay.pg_auth_service.dto.KakaoTokenResponse;
@@ -63,7 +64,8 @@ class AuthServiceSessionTest {
 			redisTemplate,
 			merchantAuthRepository,
 			merchantRefreshTokenRepository,
-			merchantTermsAgreementRepository
+			merchantTermsAgreementRepository,
+			new InternalApiProperties("test-internal-key")
 		);
 	}
 
@@ -75,7 +77,7 @@ class AuthServiceSessionTest {
 		when(kakaoClient.requestUserInfo("kakao-access"))
 			.thenReturn(new KakaoUserResponse(123L, null));
 		when(merchantAuthRepository.findByKakaoOauthId("123")).thenReturn(Optional.of(merchant));
-		when(jwtService.createAccessToken(1L, JwtRole.MERCHANT)).thenReturn("access-token");
+		when(jwtService.createMerchantAccessToken(1L, 10L)).thenReturn("access-token");
 		when(jwtService.createRefreshToken(1L, JwtRole.MERCHANT)).thenReturn("refresh-token");
 
 		KakaoMerchantLoginResponse response =
@@ -105,7 +107,8 @@ class AuthServiceSessionTest {
 		when(valueOperations.get("refresh:merchant:1")).thenReturn("refresh-token");
 		when(merchantRefreshTokenRepository.findByTokenHashAndIsRevokedFalse(anyString()))
 			.thenReturn(Optional.of(savedToken));
-		when(jwtService.createAccessToken(1L, JwtRole.MERCHANT)).thenReturn("new-access-token");
+		when(merchantAuthRepository.findById(1L)).thenReturn(Optional.of(activeMerchant()));
+		when(jwtService.createMerchantAccessToken(1L, 10L)).thenReturn("new-access-token");
 
 		TokenRefreshResponse response = authService.refreshAccessToken(
 			null,

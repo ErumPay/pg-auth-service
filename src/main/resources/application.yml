@@ -5,6 +5,12 @@ spring:
   application:
     name: pg-auth-service
 
+  cloud:
+    openfeign:
+      httpclient:
+        hc5:
+          enabled: true
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -31,13 +37,22 @@ jwt:
 kakao:
   client-id: ${KAKAO_CLIENT_ID}
   client-secret: ${KAKAO_CLIENT_SECRET:}
-  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8091/api/v1/auth/login/oauth2/code/kakao}
+  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/}
 
 merchant-service:
   url: ${MERCHANT_SERVICE_URL:http://localhost:8094}
 
 internal:
   api-key: ${INTERNAL_API_KEY}
+
+admin:
+  auth:
+    totp-enabled: ${PG_ADMIN_TOTP_ENABLED:true}
+  bootstrap:
+    enabled: ${PG_ADMIN_BOOTSTRAP_ENABLED:false}
+    login-id: ${PG_ADMIN_BOOTSTRAP_LOGIN_ID:admin}
+    password: ${PG_ADMIN_BOOTSTRAP_PASSWORD:}
+    totp-secret: ${PG_ADMIN_BOOTSTRAP_TOTP_SECRET:}
 
 management:
   endpoint:

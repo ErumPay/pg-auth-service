@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,9 +43,13 @@ public class AdminAuthService {
 	private final JwtService jwtService;
 	private final JwtProperties jwtProperties;
 
+	@Value("${admin.auth.totp-enabled:true}")
+	private boolean totpEnabled;
+
 	@Transactional
 	public AdminLoginResponse login(AdminLoginRequest request, String ipAddress) {
-		if (isBlank(request.loginId()) || isBlank(request.password()) || isBlank(request.totpCode())) {
+		if (isBlank(request.loginId()) || isBlank(request.password())
+			|| (totpEnabled && isBlank(request.totpCode()))) {
 			throw new AuthException(AuthErrorCode.ADMIN_LOGIN_REQUEST_INVALID);
 		}
 
@@ -111,6 +116,9 @@ public class AdminAuthService {
 	}
 
 	private void validateTotp(AdminAccount admin, String totpCode) {
+		if (!totpEnabled) {
+			return;
+		}
 		if (!totpService.verify(admin.getTotpSecret(), totpCode)) {
 			increaseFailure(admin);
 			throw new AuthException(AuthErrorCode.ADMIN_TOTP_INVALID);

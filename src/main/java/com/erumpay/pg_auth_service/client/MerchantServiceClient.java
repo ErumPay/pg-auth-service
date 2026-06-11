@@ -16,12 +16,14 @@ public interface MerchantServiceClient {
 
 	@PostMapping("/internal/v1/merchants")
 	MerchantCreateResponse createMerchant(
+		@RequestHeader("X-Internal-Api-Key") String internalApiKey,
 		@RequestHeader("Idempotency-Key") String idempotencyKey,
 		@RequestBody MerchantCreateRequest request
 	);
 
 	@PatchMapping("/internal/v1/merchants/{merchantId}/status")
 	MerchantServiceStatusResponse updateMerchantStatus(
+		@RequestHeader("X-Internal-Api-Key") String internalApiKey,
 		@PathVariable Long merchantId,
 		@RequestBody MerchantStatusUpdateRequest request
 	);

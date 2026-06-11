@@ -27,7 +27,7 @@ public class MerchantAuth {
 	@Column(name = "account_id")
 	private Long accountId;
 
-	@Column(name = "merchant_id")
+	@Column(name = "merchant_id", nullable = true)
 	private Long merchantId;
 
 	@Column(name = "kakao_oauth_id", nullable = false, unique = true, length = 100)

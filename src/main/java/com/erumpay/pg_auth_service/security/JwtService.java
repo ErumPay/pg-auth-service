@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class JwtService {
 
 	private static final String CLAIM_ACCOUNT_ID = "accountId";
+	private static final String CLAIM_MERCHANT_ID = "merchantId";
 	private static final String CLAIM_ROLE = "role";
 	private static final String CLAIM_TOKEN_TYPE = "tokenType";
 
@@ -24,19 +25,30 @@ public class JwtService {
 	}
 
 	public String createAccessToken(Long accountId, JwtRole role) {
-		return createToken(accountId, role, JwtTokenType.ACCESS, jwtProperties.accessTokenExpiration());
+		return createToken(accountId, null, role, JwtTokenType.ACCESS, jwtProperties.accessTokenExpiration());
+	}
+
+	public String createMerchantAccessToken(Long accountId, Long merchantId) {
+		return createToken(
+			accountId,
+			merchantId,
+			JwtRole.MERCHANT,
+			JwtTokenType.ACCESS,
+			jwtProperties.accessTokenExpiration()
+		);
 	}
 
 	public String createRefreshToken(Long accountId, JwtRole role) {
 		long expiration = role == JwtRole.PG_ADMIN
 			? jwtProperties.adminRefreshTokenExpiration()
 			: jwtProperties.refreshTokenExpiration();
-		return createToken(accountId, role, JwtTokenType.REFRESH, expiration);
+		return createToken(accountId, null, role, JwtTokenType.REFRESH, expiration);
 	}
 
 	public String createSignupToken(Long accountId) {
 		return createToken(
 			accountId,
+			null,
 			JwtRole.MERCHANT,
 			JwtTokenType.SIGNUP,
 			jwtProperties.signupTokenExpiration()
@@ -60,22 +72,34 @@ public class JwtService {
 		return parseClaims(token).get(CLAIM_ROLE, String.class);
 	}
 
+	public Long extractMerchantId(String token) {
+		return parseClaims(token).get(CLAIM_MERCHANT_ID, Long.class);
+	}
+
 	public String extractTokenType(String token) {
 		return parseClaims(token).get(CLAIM_TOKEN_TYPE, String.class);
 	}
 
-	private String createToken(Long accountId, JwtRole role, JwtTokenType tokenType, long expirationMillis) {
+	private String createToken(
+		Long accountId,
+		Long merchantId,
+		JwtRole role,
+		JwtTokenType tokenType,
+		long expirationMillis
+	) {
 		Date now = new Date();
 		Date expiresAt = new Date(now.getTime() + expirationMillis);
 
-		return Jwts.builder()
+		var builder = Jwts.builder()
 			.claim(CLAIM_ACCOUNT_ID, accountId)
 			.claim(CLAIM_ROLE, role.name())
 			.claim(CLAIM_TOKEN_TYPE, tokenType.name())
 			.issuedAt(now)
-			.expiration(expiresAt)
-			.signWith(secretKey)
-			.compact();
+			.expiration(expiresAt);
+		if (merchantId != null) {
+			builder.claim(CLAIM_MERCHANT_ID, merchantId);
+		}
+		return builder.signWith(secretKey).compact();
 	}
 
 	private Claims parseClaims(String token) {

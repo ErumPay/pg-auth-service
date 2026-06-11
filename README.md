@@ -42,3 +42,16 @@ ACTIVE -> WITHDRAWN
 - `SUSPENDED`: 이용 정지
 - `WITHDRAWN`: 탈퇴
 
+## 로컬 Docker PG 관리자
+
+로컬 Docker Compose에서는 관리자 테이블이 비어 있을 때 개발용 계정을 자동 생성합니다.
+
+```text
+관리자 ID: admin
+비밀번호: admin1234!
+OTP: 입력하지 않음
+```
+
+`PG_ADMIN_BOOTSTRAP_ENABLED`의 기본값은 `false`, `PG_ADMIN_TOTP_ENABLED`의 기본값은
+`true`이므로 이 설정은 Docker 로컬 개발환경에서만 명시적으로 활성화됩니다.
+운영 환경에서는 자동 생성 계정을 사용하지 않고 TOTP 검증을 활성화해야 합니다.

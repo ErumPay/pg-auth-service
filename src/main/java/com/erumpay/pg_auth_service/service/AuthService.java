@@ -3,6 +3,7 @@ package com.erumpay.pg_auth_service.service;
 import com.erumpay.pg_auth_service.client.KakaoClient;
 import com.erumpay.pg_auth_service.client.MerchantServiceClient;
 import com.erumpay.pg_auth_service.config.RedisConfig;
+import com.erumpay.pg_auth_service.config.InternalApiProperties;
 import com.erumpay.pg_auth_service.dto.AuthStatusResponse;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginRequest;
 import com.erumpay.pg_auth_service.dto.KakaoMerchantLoginResponse;
@@ -63,6 +64,7 @@ public class AuthService {
 	private final MerchantAuthRepository merchantAuthRepository;
 	private final MerchantRefreshTokenRepository merchantRefreshTokenRepository;
 	private final MerchantTermsAgreementRepository merchantTermsAgreementRepository;
+	private final InternalApiProperties internalApiProperties;
 
 	public AuthStatusResponse getStatus() {
 		return new AuthStatusResponse("pg-auth-service", "UP");
@@ -136,6 +138,7 @@ public class AuthService {
 		// merchant-service 내부 가맹점 생성 API는 Idempotency-Key가 필수입니다.
 		String idempotencyKey = "merchant-signup-" + accountId;
 		MerchantCreateResponse merchantResponse = merchantServiceClient.createMerchant(
+			internalApiProperties.apiKey(),
 			idempotencyKey,
 			toMerchantCreateRequest(request)
 		);
@@ -174,7 +177,12 @@ public class AuthService {
 			.findByTokenHashAndIsRevokedFalse(hashToken(refreshToken))
 			.orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_REVOKED));
 
-		String newAccessToken = jwtService.createAccessToken(accountId, JwtRole.MERCHANT);
+		MerchantAuth merchant = merchantAuthRepository.findById(accountId)
+			.orElseThrow(() -> new AuthException(AuthErrorCode.MERCHANT_ACCOUNT_NOT_FOUND));
+		if (merchant.getStatus() != MerchantAccountStatus.ACTIVE || merchant.getMerchantId() == null) {
+			throw new AuthException(AuthErrorCode.MERCHANT_LOGIN_NOT_ALLOWED);
+		}
+		String newAccessToken = jwtService.createMerchantAccessToken(accountId, merchant.getMerchantId());
 		if (shouldRotateRefreshToken(savedRefreshToken)) {
 			savedRefreshToken.setIsRevoked(true);
 			String newRefreshToken = jwtService.createRefreshToken(accountId, JwtRole.MERCHANT);
@@ -278,7 +286,10 @@ public class AuthService {
 		}
 
 		merchant.setLastLoginAt(LocalDateTime.now());
-		String accessToken = jwtService.createAccessToken(merchant.getAccountId(), JwtRole.MERCHANT);
+		String accessToken = jwtService.createMerchantAccessToken(
+			merchant.getAccountId(),
+			merchant.getMerchantId()
+		);
 		String refreshToken = jwtService.createRefreshToken(merchant.getAccountId(), JwtRole.MERCHANT);
 		saveRefreshToken(merchant.getAccountId(), refreshToken);
 

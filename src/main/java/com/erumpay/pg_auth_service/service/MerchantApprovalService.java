@@ -1,6 +1,7 @@
 package com.erumpay.pg_auth_service.service;
 
 import com.erumpay.pg_auth_service.client.MerchantServiceClient;
+import com.erumpay.pg_auth_service.config.InternalApiProperties;
 import com.erumpay.pg_auth_service.dto.MerchantApprovalResponse;
 import com.erumpay.pg_auth_service.dto.MerchantServiceStatusResponse;
 import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateRequest;
@@ -19,9 +20,11 @@ public class MerchantApprovalService {
 
 	private final MerchantAuthRepository merchantAuthRepository;
 	private final MerchantServiceClient merchantServiceClient;
+	private final AdminAuditLogService adminAuditLogService;
+	private final InternalApiProperties internalApiProperties;
 
 	@Transactional
-	public MerchantApprovalResponse approve(Long merchantId) {
+	public MerchantApprovalResponse approve(Long merchantId, Long adminId, String ipAddress) {
 		MerchantAuth merchant = merchantAuthRepository.findByMerchantId(merchantId)
 			.orElseThrow(() -> new AuthException(AuthErrorCode.MERCHANT_NOT_FOUND));
 
@@ -35,6 +38,7 @@ public class MerchantApprovalService {
 		MerchantServiceStatusResponse response;
 		try {
 			response = merchantServiceClient.updateMerchantStatus(
+				internalApiProperties.apiKey(),
 				merchantId,
 				new MerchantStatusUpdateRequest(MerchantAccountStatus.ACTIVE)
 			);
@@ -49,6 +53,13 @@ public class MerchantApprovalService {
 		}
 
 		merchant.setStatus(MerchantAccountStatus.ACTIVE);
+		adminAuditLogService.record(
+			adminId,
+			"MERCHANT_APPROVED",
+			String.valueOf(merchantId),
+			"{\"status\":\"ACTIVE\"}",
+			ipAddress
+		);
 		return new MerchantApprovalResponse(merchantId, merchant.getStatus());
 	}
 }

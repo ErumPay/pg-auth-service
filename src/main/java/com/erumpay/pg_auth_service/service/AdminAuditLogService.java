@@ -1,6 +1,7 @@
 package com.erumpay.pg_auth_service.service;
 
 import com.erumpay.pg_auth_service.dto.AdminAuditLogRequest;
+import com.erumpay.pg_auth_service.dto.AdminAuditLogDetailResponse;
 import com.erumpay.pg_auth_service.dto.AdminAuditLogResponse;
 import com.erumpay.pg_auth_service.entity.AdminAuditLog;
 import com.erumpay.pg_auth_service.exception.AuthErrorCode;
@@ -10,6 +11,8 @@ import com.erumpay.pg_auth_service.repository.AdminAuditLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,12 @@ public class AdminAuditLogService {
 	private final AdminAccountRepository adminAccountRepository;
 	private final AdminAuditLogRepository adminAuditLogRepository;
 	private final ObjectMapper objectMapper;
+
+	@Transactional(readOnly = true)
+	public Page<AdminAuditLogDetailResponse> getLogs(Pageable pageable) {
+		return adminAuditLogRepository.findAllByOrderByCreatedAtDesc(pageable)
+			.map(AdminAuditLogDetailResponse::from);
+	}
 
 	@Transactional
 	public AdminAuditLogResponse record(AdminAuditLogRequest request) {

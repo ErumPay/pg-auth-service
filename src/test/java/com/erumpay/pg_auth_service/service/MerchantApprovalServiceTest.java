@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.erumpay.pg_auth_service.client.MerchantServiceClient;
+import com.erumpay.pg_auth_service.config.InternalApiProperties;
 import com.erumpay.pg_auth_service.dto.MerchantApprovalResponse;
 import com.erumpay.pg_auth_service.dto.MerchantServiceStatusResponse;
 import com.erumpay.pg_auth_service.dto.MerchantStatusUpdateRequest;
@@ -32,13 +33,18 @@ class MerchantApprovalServiceTest {
 	@Mock
 	private MerchantServiceClient merchantServiceClient;
 
+	@Mock
+	private AdminAuditLogService adminAuditLogService;
+
 	private MerchantApprovalService merchantApprovalService;
 
 	@BeforeEach
 	void setUp() {
 		merchantApprovalService = new MerchantApprovalService(
 			merchantAuthRepository,
-			merchantServiceClient
+			merchantServiceClient,
+			adminAuditLogService,
+			new InternalApiProperties("test-internal-key")
 		);
 	}
 
@@ -47,11 +53,13 @@ class MerchantApprovalServiceTest {
 		MerchantAuth merchant = merchant(10L, MerchantAccountStatus.PENDING);
 		when(merchantAuthRepository.findByMerchantId(10L)).thenReturn(Optional.of(merchant));
 		when(merchantServiceClient.updateMerchantStatus(
+			"test-internal-key",
 			10L,
 			new MerchantStatusUpdateRequest(MerchantAccountStatus.ACTIVE)
 		)).thenReturn(new MerchantServiceStatusResponse(10L, MerchantAccountStatus.ACTIVE));
 
-		MerchantApprovalResponse response = merchantApprovalService.approve(10L);
+		MerchantApprovalResponse response =
+			merchantApprovalService.approve(10L, 1L, "127.0.0.1");
 
 		assertThat(response.status()).isEqualTo(MerchantAccountStatus.ACTIVE);
 		assertThat(merchant.getStatus()).isEqualTo(MerchantAccountStatus.ACTIVE);
@@ -62,10 +70,12 @@ class MerchantApprovalServiceTest {
 		MerchantAuth merchant = merchant(10L, MerchantAccountStatus.ACTIVE);
 		when(merchantAuthRepository.findByMerchantId(10L)).thenReturn(Optional.of(merchant));
 
-		MerchantApprovalResponse response = merchantApprovalService.approve(10L);
+		MerchantApprovalResponse response =
+			merchantApprovalService.approve(10L, 1L, "127.0.0.1");
 
 		assertThat(response.status()).isEqualTo(MerchantAccountStatus.ACTIVE);
 		verify(merchantServiceClient, never()).updateMerchantStatus(
+			"test-internal-key",
 			10L,
 			new MerchantStatusUpdateRequest(MerchantAccountStatus.ACTIVE)
 		);
@@ -76,7 +86,8 @@ class MerchantApprovalServiceTest {
 		MerchantAuth merchant = merchant(10L, MerchantAccountStatus.DRAFT);
 		when(merchantAuthRepository.findByMerchantId(10L)).thenReturn(Optional.of(merchant));
 
-		assertThatThrownBy(() -> merchantApprovalService.approve(10L))
+		assertThatThrownBy(() ->
+			merchantApprovalService.approve(10L, 1L, "127.0.0.1"))
 			.isInstanceOfSatisfying(AuthException.class, exception ->
 				assertThat(exception.getErrorCode())
 					.isEqualTo(AuthErrorCode.MERCHANT_APPROVAL_NOT_ALLOWED)
@@ -88,11 +99,13 @@ class MerchantApprovalServiceTest {
 		MerchantAuth merchant = merchant(10L, MerchantAccountStatus.PENDING);
 		when(merchantAuthRepository.findByMerchantId(10L)).thenReturn(Optional.of(merchant));
 		when(merchantServiceClient.updateMerchantStatus(
+			"test-internal-key",
 			10L,
 			new MerchantStatusUpdateRequest(MerchantAccountStatus.ACTIVE)
 		)).thenThrow(new IllegalStateException("merchant-service unavailable"));
 
-		assertThatThrownBy(() -> merchantApprovalService.approve(10L))
+		assertThatThrownBy(() ->
+			merchantApprovalService.approve(10L, 1L, "127.0.0.1"))
 			.isInstanceOfSatisfying(AuthException.class, exception ->
 				assertThat(exception.getErrorCode())
 					.isEqualTo(AuthErrorCode.MERCHANT_STATUS_SYNC_FAILED)
