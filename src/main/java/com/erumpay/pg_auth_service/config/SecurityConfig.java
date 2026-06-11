@@ -36,6 +36,7 @@ public class SecurityConfig {
 			.httpBasic(basic -> basic.disable())
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/internal/v1/auth/**").hasRole("INTERNAL_SERVICE")
+				.requestMatchers("/api/v1/pg-admin/**").hasRole("PG_ADMIN")
 				.requestMatchers("/api/v1/auth/**").permitAll()
 				.requestMatchers(
 					"/actuator/health",

@@ -28,7 +28,10 @@ public class JwtService {
 	}
 
 	public String createRefreshToken(Long accountId, JwtRole role) {
-		return createToken(accountId, role, JwtTokenType.REFRESH, jwtProperties.refreshTokenExpiration());
+		long expiration = role == JwtRole.PG_ADMIN
+			? jwtProperties.adminRefreshTokenExpiration()
+			: jwtProperties.refreshTokenExpiration();
+		return createToken(accountId, role, JwtTokenType.REFRESH, expiration);
 	}
 
 	public String createSignupToken(Long accountId) {

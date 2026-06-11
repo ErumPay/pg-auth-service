@@ -35,6 +35,7 @@
 | `AUTH-MCH-203` | `MERCHANT_LOGIN_NOT_ALLOWED` | 409 | 현재 가맹점 상태에서는 로그인할 수 없습니다. | 가맹점 상태가 PENDING, REJECTED, SUSPENDED, WITHDRAWN 등 ACTIVE/DRAFT 로그인 흐름에 해당하지 않음 | 상태를 안내하고 로그인 중단, 운영 정책에 따라 심사 또는 복구 절차 진행 | SDK 미노출 |
 | `AUTH-MCH-204` | `MERCHANT_SIGNUP_NOT_ALLOWED` | 409 | 현재 가맹점 상태에서는 회원가입을 진행할 수 없습니다. | 가맹점 계정 상태가 DRAFT가 아닌데 약관 동의 또는 회원가입 진행 | 현재 가맹점 상태 조회 후 허용되는 절차로 이동 | SDK 미노출 |
 | `AUTH-MCH-205` | `MERCHANT_TERMS_REQUIRED` | 409 | 약관 동의 후 회원가입을 진행할 수 있습니다. | 약관 동의 이력 없이 가맹점 회원가입 요청 | 약관 동의 API 완료 후 회원가입 재요청 | SDK 미노출 |
+| `AUTH-MCH-206` | `MERCHANT_APPROVAL_NOT_ALLOWED` | 409 | 현재 가맹점 상태에서는 승인을 처리할 수 없습니다. | PENDING 또는 ACTIVE가 아닌 가맹점에 승인 요청 | 현재 가맹점 상태 확인 후 승인 가능 상태에서 재요청 | SDK 미노출 |
 | `AUTH-MCH-301` | `MERCHANT_TERMS_ALREADY_AGREED` | 409 | 이미 약관 동의가 완료된 가맹점 계정입니다. | 같은 accountId로 약관 동의를 중복 요청 | 기존 동의 결과를 사용하고 회원가입 단계로 이동 | SDK 미노출 |
 
 ## 토큰 에러 코드
@@ -95,6 +96,7 @@
 |---|---|---:|---|---|---|---|
 | `AUTH-EXT-400` | `MERCHANT_CREATE_REQUEST_FAILED` | 503 | 가맹점 생성 서비스를 일시적으로 사용할 수 없습니다. | merchant-service 가맹점 생성 API 호출 실패, 타임아웃 또는 서비스 장애 | merchant-service 상태 확인 후 동일 Idempotency-Key로 재시도 | SDK 미노출 |
 | `AUTH-EXT-401` | `MERCHANT_CREATE_RESPONSE_INVALID` | 502 | 가맹점 생성 응답이 올바르지 않습니다. | merchant-service 응답이 null이거나 merchantId가 없음 | 연동 응답 로그 확인, 중복 생성 여부 확인 후 재처리 | SDK 미노출 |
+| `AUTH-EXT-402` | `MERCHANT_STATUS_SYNC_FAILED` | 502 | 가맹점 상태 동기화에 실패했습니다. | merchant-service 상태 변경 호출 실패 또는 ACTIVE 응답 검증 실패 | merchant-service 상태와 가맹점 상태를 확인 후 재처리 | SDK 미노출 |
 
 ## DB 및 Redis 에러 코드
 

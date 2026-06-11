@@ -130,7 +130,7 @@ public class AdminAuthService {
 		token.setAdminId(adminId);
 		token.setTokenHash(hashToken(refreshToken));
 		token.setExpiresAt(LocalDateTime.ofInstant(
-			Instant.now().plusMillis(jwtProperties.refreshTokenExpiration()),
+			Instant.now().plusMillis(jwtProperties.adminRefreshTokenExpiration()),
 			ZoneId.systemDefault()
 		));
 		token.setIsRevoked(false);
